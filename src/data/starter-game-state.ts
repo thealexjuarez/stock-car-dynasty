@@ -1,8 +1,8 @@
 import { provisionalDriverPresentation } from '@/data/provisional-driver-presentation';
 import {
-  apexManufacturerId,
-  manufacturers,
-  startingWorldOrganizations,
+  apexStartingManufacturerId,
+  getManufacturerById,
+  manufacturerCatalog,
 } from '@/data/manufacturer-data';
 import type { Driver, DriverStat, GameState, TrackType } from '@/types/game';
 
@@ -46,7 +46,7 @@ const calendar = trackInfo.map(([id,name], index) => ({ id:`race-${index+1}`, ro
 
 export const starterGameState: GameState = {
   sanctioningBody:'NSCRA', series:'ERCA Stock Series', season:1, week:1, currentDate:'May 1, 2028',
-  team:{ id:'team-apex-motorsports', name:'Apex Motorsports', cash:525000, series:'ERCA Stock Series', sanctioningBody:'NSCRA', manufacturerId:apexManufacturerId, reputation:46, brandPower:44, recruitingPull:45, sponsorAppeal:48, carPerformance:54, pitCrewQuality:42, engineeringQuality:46, garageEfficiency:45, morale:55 },
+  team:{ id:'team-apex-motorsports', name:'Apex Motorsports', cash:525000, series:'ERCA Stock Series', sanctioningBody:'NSCRA', manufacturerId:apexStartingManufacturerId, reputation:46, brandPower:44, recruitingPull:45, sponsorAppeal:48, carPerformance:54, pitCrewQuality:42, engineeringQuality:46, garageEfficiency:45, morale:55 },
   drivers:starterDrivers,
   // Locked by the vNext Bible's Apex Motorsports Starting Cars table.
   vehicles:[
@@ -64,8 +64,7 @@ export const starterGameState: GameState = {
     { id:'sponsor-lone-star-auto-parts',name:'Lone Star Auto Parts',slot:'Secondary Sponsor 1',personality:'Local Supporter',annualValue:65000,goal:'Both cars finish 7 races',bonus:'$8,000 for 8+ finishes',active:true },
     { id:'sponsor-gulf-coast-wraps',name:'Gulf Coast Wraps',slot:'Secondary Sponsor 2',personality:'Performance Brand-lite',annualValue:45000,goal:'Score one top 20',bonus:'$10,000 for one top 15',active:true },
   ],
-  manufacturers,
-  startingWorldOrganizations,
+  manufacturers:manufacturerCatalog,
   facilities:[
     ['garage','Garage','Repairs, condition recovery, mechanical risk.'],['engineering','Engineering Shop','Setup confidence, practice gains, race pace notes.'],['scouting','Scouting Office','Scouting speed, weekly RP, info accuracy, discovery.'],['sponsor','Sponsor Office','Offer quality, renewals, relationship growth, market size.'],['training','Training Center','Driver development, morale, confidence recovery.'],['pit-crew','Pit Crew Program','Pit speed, consistency, mistake chance, stage execution.'],
   ].map(([id,name,purpose]) => ({ id:`facility-${id}`,name,level:1,cap:3,purpose })),
@@ -79,4 +78,4 @@ export function getNextRace(state: GameState = starterGameState) {
 export const getDriver = (id: string) => starterGameState.drivers.find((driver) => driver.id === id);
 export const getVehicle = (number: string) => starterGameState.vehicles.find((vehicle) => vehicle.number === number);
 export const getTeamManufacturer = (state: GameState = starterGameState) =>
-  state.manufacturers.find((manufacturer) => manufacturer.id === state.team.manufacturerId);
+  getManufacturerById(state.team.manufacturerId, state.manufacturers);

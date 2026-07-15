@@ -32,7 +32,7 @@ export function HomeScreen() {
         <AppText variant="hero">{state.team.name}</AppText>
         <AppText tone="muted">
           Season {state.season}, Week {state.week} · {state.series} ·{' '}
-          {manufacturer?.name ?? 'Manufacturer not selected'}
+          {manufacturer.displayName}
         </AppText>
       </View>
 

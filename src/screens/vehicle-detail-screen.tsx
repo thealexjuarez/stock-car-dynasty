@@ -14,9 +14,6 @@ export function VehicleDetailScreen({ number }: { number: string }) {
     (item) => item.id === vehicle?.assignedDriverId,
   );
   const manufacturer = getTeamManufacturer();
-  const rangerPerformance = starterGameState.startingWorldOrganizations.find(
-    (organization) => organization.name === 'Ranger Performance',
-  );
 
   if (!vehicle) {
     return (
@@ -39,14 +36,8 @@ export function VehicleDetailScreen({ number }: { number: string }) {
       </View>
 
       <AppCard>
-        <AppText variant="title">Program Alignment</AppText>
-        <AppRow label="Manufacturer" detail={manufacturer?.name ?? 'Not selected'} />
-        {rangerPerformance ? (
-          <>
-            <AppRow label="Starting-World Organization" detail={rangerPerformance.name} />
-            <AppRow label="Organization Role" detail="Not yet defined" />
-          </>
-        ) : null}
+        <AppText variant="title">Manufacturer</AppText>
+        <AppRow label="Program" detail={manufacturer.displayName} />
       </AppCard>
 
       <AppCard>

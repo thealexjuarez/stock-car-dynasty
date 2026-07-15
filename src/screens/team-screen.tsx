@@ -21,7 +21,7 @@ export function TeamScreen() {
         <AppText variant="eyebrow" tone="accent">Team Operations</AppText>
         <AppText variant="hero">{team.name}</AppText>
         <AppText tone="muted">
-          Lower mid-pack ERCA team · {manufacturer?.name ?? 'Manufacturer not selected'} · two equal entries
+          Lower mid-pack ERCA team · {manufacturer.displayName} · two equal entries
         </AppText>
       </View>
 
