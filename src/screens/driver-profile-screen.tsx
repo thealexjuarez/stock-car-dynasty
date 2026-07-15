@@ -24,12 +24,11 @@ export function DriverProfileScreen({ driverId }: { driverId: string }) {
     <Screen>
       <View style={{ gap: theme.spacing.sm }}>
         <AppText variant="eyebrow" tone="accent">
-          Car #{driver.carNumber} · {driver.hometown} (provisional)
+          Car #{driver.carNumber} · {driver.hometown}
         </AppText>
         <AppText variant="hero">{driver.name}</AppText>
         <AppText tone="muted">
-          Age {driver.age} (provisional) · {driver.contract} contract (provisional) · $
-          {driver.salary.toLocaleString()} salary (provisional)
+          Age {driver.age} · {driver.contract} contract · ${driver.salary.toLocaleString()} salary
         </AppText>
       </View>
 
@@ -37,41 +36,30 @@ export function DriverProfileScreen({ driverId }: { driverId: string }) {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
           <StatusBadge label={`OVR ${driver.overall}`} tone="blue" />
           <StatusBadge label={`POT ${driver.potential}`} tone="green" />
-          <StatusBadge label="EXP data provisional" tone="neutral" />
         </View>
         <ProgressBar
           value={driver.exp}
           max={driver.nextRatingExp}
           label="EXP to next rating"
         />
-        <AppRow label="Development Trend (provisional)" detail={driver.developmentTrend} />
+        <AppRow label="Development Trend" detail={driver.developmentTrend} />
       </AppCard>
 
       <AppCard>
-        <AppText variant="title">Locked Archetypes</AppText>
+        <AppText variant="title">Archetypes</AppText>
         <AppRow label="Primary Archetype" detail={driver.archetypes[0]} />
         <AppRow label="Secondary Archetype" detail={driver.archetypes[1]} />
       </AppCard>
 
       <AppCard>
-        <View style={{ gap: theme.spacing.xs }}>
-          <AppText variant="title">Driver Ratings</AppText>
-          <AppText variant="caption" tone="soft">
-            Provisional starter presentation data; individual ratings are not locked canon.
-          </AppText>
-        </View>
+        <AppText variant="title">Driver Ratings</AppText>
         {Object.entries(driver.stats).map(([key, value]) => (
           <AppRow key={key} label={key} detail={`${value}`} />
         ))}
       </AppCard>
 
       <AppCard>
-        <View style={{ gap: theme.spacing.xs }}>
-          <AppText variant="title">Growth Modifiers</AppText>
-          <AppText variant="caption" tone="soft">
-            Provisional profile assignments based on starter facilities and staff.
-          </AppText>
-        </View>
+        <AppText variant="title">Growth Modifiers</AppText>
         {driver.growthModifiers.map((modifier) => (
           <AppRow key={modifier} label={modifier} />
         ))}
