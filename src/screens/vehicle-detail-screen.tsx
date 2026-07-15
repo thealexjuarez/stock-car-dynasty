@@ -5,13 +5,17 @@ import { AppRow } from '@/components/shared/app-row';
 import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
 import { StatusBadge } from '@/components/shared/status-badge';
-import { starterGameState } from '@/data/starter-game-state';
+import { getTeamManufacturer, starterGameState } from '@/data/starter-game-state';
 import { theme } from '@/theme';
 
 export function VehicleDetailScreen({ number }: { number: string }) {
   const vehicle = starterGameState.vehicles.find((item) => item.number === number);
   const driver = starterGameState.drivers.find(
     (item) => item.id === vehicle?.assignedDriverId,
+  );
+  const manufacturer = getTeamManufacturer();
+  const rangerPerformance = starterGameState.startingWorldOrganizations.find(
+    (organization) => organization.name === 'Ranger Performance',
   );
 
   if (!vehicle) {
@@ -26,13 +30,24 @@ export function VehicleDetailScreen({ number }: { number: string }) {
     <Screen>
       <View style={{ gap: theme.spacing.sm }}>
         <AppText variant="eyebrow" tone="accent">
-          {starterGameState.team.name} · {starterGameState.manufacturer.name}
+          {starterGameState.team.name}
         </AppText>
         <AppText variant="hero">Car #{vehicle.number}</AppText>
         <AppText tone="muted">
           Assigned to {driver?.name}. Both active cars receive equal upgrade treatment.
         </AppText>
       </View>
+
+      <AppCard>
+        <AppText variant="title">Program Alignment</AppText>
+        <AppRow label="Manufacturer" detail={manufacturer?.name ?? 'Not selected'} />
+        {rangerPerformance ? (
+          <>
+            <AppRow label="Starting-World Organization" detail={rangerPerformance.name} />
+            <AppRow label="Organization Role" detail="Not yet defined" />
+          </>
+        ) : null}
+      </AppCard>
 
       <AppCard>
         <View
