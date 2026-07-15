@@ -1,0 +1,1 @@
+import { useLocalSearchParams } from 'expo-router'; import { DriverProfileScreen } from '@/screens/driver-profile-screen'; export default function DriverRoute(){const {id}=useLocalSearchParams<{id:string}>();return <DriverProfileScreen driverId={id}/>}
