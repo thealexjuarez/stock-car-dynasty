@@ -28,7 +28,7 @@ export const tabs: TabDefinition[] = [
   {
     key: 'league',
     title: 'League',
-    purpose: 'Standings, points, Chase, stats, and history',
+    purpose: 'Standings, points, schedule, results, and rival teams',
     icon: { ios: 'trophy.fill', android: 'emoji_events', web: 'trophy.fill' },
   },
 ];
@@ -95,7 +95,7 @@ export const placeholderSections: Record<string, PlaceholderSection[]> = {
       title: 'Championship',
       badge: 'Points',
       badgeTone: 'yellow',
-      rows: ['Standings', 'Chase picture', 'Season stats'],
+      rows: ['Standings', 'Schedule', 'Season stats'],
     },
     {
       title: 'Archive',

@@ -1,0 +1,1 @@
+import { useLocalSearchParams } from 'expo-router'; import { VehicleDetailScreen } from '@/screens/vehicle-detail-screen'; export default function VehicleRoute(){const {number}=useLocalSearchParams<{number:string}>();return <VehicleDetailScreen number={number}/>}
