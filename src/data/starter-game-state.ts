@@ -1,12 +1,27 @@
+import { provisionalDriverPresentation } from '@/data/provisional-driver-presentation';
 import type { Driver, DriverStat, GameState, TrackType } from '@/types/game';
 
-const stats = (values: number[]): Record<DriverStat, number> => Object.fromEntries(
-  ['Speed','Cornering','Braking','Throttle Control','Racecraft','Qualifying','Restarts','Tire Management','Consistency','Awareness'].map((key, index) => [key, values[index]]),
-) as Record<DriverStat, number>;
-
 export const starterDrivers: Driver[] = [
-  { id:'driver-cole-mercer', name:'Cole Mercer', age:28, hometown:'Hickory, NC', carNumber:'45', overall:64, potential:72, role:'Lead Driver', archetypes:['Short Track Specialist','Reliable Journeyman'], stats:stats([61,66,64,62,67,58,68,63,69,66]), salary:58000, contract:'1-year', morale:'Happy', confidence:'Steady', fatigue:'Fresh', exp:860, nextRatingExp:1500, developmentTrend:'Steady', growthModifiers:['Training Center Level 1','Ray Hollis: Development-Minded'], active:true },
-  { id:'driver-aiden-voss', name:'Aiden Voss', age:21, hometown:'Mobile, AL', carNumber:'46', overall:57, potential:76, role:'Development Driver', archetypes:['Development Prospect','Aggressive Driver'], stats:stats([60,57,54,52,55,56,62,50,49,53]), salary:42000, contract:'1-year', morale:'Neutral', confidence:'Steady', fatigue:'Fresh', exp:1020, nextRatingExp:1500, developmentTrend:'Rising', growthModifiers:['Development Prospect: +15% development','Training Center Level 1','Ray Hollis: Development-Minded'], active:true },
+  {
+    id: 'driver-cole-mercer',
+    name: 'Cole Mercer',
+    carNumber: '45',
+    overall: 64,
+    potential: 72,
+    archetypes: ['Short Track Specialist', 'Reliable Journeyman'],
+    active: true,
+    ...provisionalDriverPresentation['driver-cole-mercer'],
+  },
+  {
+    id: 'driver-aiden-voss',
+    name: 'Aiden Voss',
+    carNumber: '46',
+    overall: 58,
+    potential: 76,
+    archetypes: ['Development Prospect', 'Road Course Specialist'],
+    active: true,
+    ...provisionalDriverPresentation['driver-aiden-voss'],
+  },
 ];
 
 const trackInfo: [string,string,TrackType,DriverStat[],string,string,string][] = [
