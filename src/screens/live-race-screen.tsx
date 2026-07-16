@@ -1,5 +1,5 @@
 import { RacePresentationShell } from '@/components/race-presentation/race-presentation-shell';
 
-export function QualifyingScreen() {
-  return <RacePresentationShell kind="qualifying" />;
+export function LiveRaceScreen() {
+  return <RacePresentationShell kind="race" />;
 }
