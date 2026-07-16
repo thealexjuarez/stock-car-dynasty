@@ -16,6 +16,9 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="race-preview" options={{ headerShown: true, title: 'Race Preview', headerBackTitle: 'Home' }} />
+        <Stack.Screen name="practice" options={{ headerShown: true, title: 'Practice', headerBackTitle: 'Preview' }} />
+        <Stack.Screen name="practice-result" options={{ headerShown: true, title: 'Practice Result', headerBackTitle: 'Practice' }} />
+        <Stack.Screen name="qualifying" options={{ headerShown: true, title: 'Qualifying', headerBackTitle: 'Result' }} />
         <Stack.Screen name="drivers/[id]" options={{ headerShown: true, title: 'Driver Profile', headerBackTitle: 'Team' }} />
         <Stack.Screen name="vehicles/[number]" options={{ headerShown: true, title: 'Vehicle Detail', headerBackTitle: 'Team' }} />
       </Stack>

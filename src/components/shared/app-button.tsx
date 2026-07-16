@@ -9,15 +9,24 @@ type AppButtonProps = Omit<PressableProps, 'style'> & {
   variant?: 'primary' | 'secondary';
 };
 
-export function AppButton({ label, variant = 'primary', style, ...props }: AppButtonProps) {
+export function AppButton({
+  disabled,
+  label,
+  variant = 'primary',
+  style,
+  ...props
+}: AppButtonProps) {
   const isPrimary = variant === 'primary';
 
   return (
     <Pressable
       {...props}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
+      disabled={disabled}
       style={({ pressed }) => [
         {
-          opacity: pressed ? 0.78 : 1,
+          opacity: disabled ? 0.5 : pressed ? 0.78 : 1,
         },
         style,
       ]}>

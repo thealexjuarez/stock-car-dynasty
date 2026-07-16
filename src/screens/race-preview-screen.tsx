@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { View } from 'react-native';
 
 import { AppButton } from '@/components/shared/app-button';
@@ -77,10 +78,9 @@ export function RacePreviewScreen() {
         ))}
       </AppCard>
 
-      <AppButton label="Begin Practice (Coming Next)" disabled />
-      <AppText variant="caption" tone="soft">
-        Practice and the race simulation remain outside this vertical slice.
-      </AppText>
+      <Link href="/practice" asChild>
+        <AppButton label="Begin Practice" />
+      </Link>
     </Screen>
   );
 }

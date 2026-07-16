@@ -1,0 +1,125 @@
+import {
+  practiceResolutionTuning as tuning,
+  trackTypeArchetypeFits,
+} from '@/data/practice-config';
+import { getNextRace, starterGameState } from '@/data/starter-game-state';
+import { getSeededVariance } from '@/simulation/seeded-variance';
+import type { Driver, GameState } from '@/types/game';
+import type {
+  PracticeChoice,
+  PracticeEntryInput,
+  PracticeEntryResult,
+  PracticeInput,
+  PracticeResult,
+} from '@/types/practice';
+
+const clamp = (value: number, minimum: number, maximum: number) =>
+  Math.min(maximum, Math.max(minimum, value));
+
+const average = (values: readonly number[]) =>
+  values.reduce((total, value) => total + value, 0) / values.length;
+
+function getArchetypeFitBonus(driver: Driver, trackType: PracticeInput['track']['type']) {
+  const fits = trackTypeArchetypeFits[trackType];
+
+  if (fits.includes(driver.archetypes[0])) {
+    return tuning.archetypeFitBonus.primary;
+  }
+
+  if (fits.includes(driver.archetypes[1])) {
+    return tuning.archetypeFitBonus.secondary;
+  }
+
+  return 0;
+}
+
+function getCrewFeedback(setupConfidence: number) {
+  if (setupConfidence >= tuning.feedbackThresholds.strong) {
+    return 'The car responded cleanly and the setup window feels repeatable.';
+  }
+
+  if (setupConfidence >= tuning.feedbackThresholds.usable) {
+    return 'The baseline is usable, with only a narrow balance window to manage.';
+  }
+
+  return 'The direction is clearer, but the balance remains sensitive.';
+}
+
+function formatSessionEffect(label: string, value: number) {
+  return value > 0 ? `${label} +${value}` : `No direct ${label.toLowerCase()} bonus`;
+}
+
+function resolveEntry(input: PracticeInput, entry: PracticeEntryInput): PracticeEntryResult {
+  const { driver, vehicle } = entry;
+  const trackStats = input.track.keyStats.map((stat) => driver.stats[stat]);
+  const variance = getSeededVariance(
+    `${input.race.id}:${vehicle.id}:${input.selectedChoice.id}`,
+    tuning.varianceMaximum,
+  );
+  const rawConfidence =
+    average(trackStats) * tuning.weights.trackRelevantDriverStats +
+    driver.overall * tuning.weights.driverOverall +
+    vehicle.performance * tuning.weights.vehiclePerformance +
+    vehicle.condition * tuning.weights.vehicleCondition +
+    input.team.engineeringQuality * tuning.weights.engineeringQuality +
+    input.crewChiefQuality * tuning.weights.crewChiefQuality +
+    getArchetypeFitBonus(driver, input.track.type) +
+    input.selectedChoice.effects.setupConfidence +
+    variance;
+  const setupConfidence = Math.round(
+    clamp(rawConfidence, tuning.confidenceBounds.minimum, tuning.confidenceBounds.maximum),
+  );
+  const strongestTrackStat = input.track.keyStats.reduce((strongest, stat) =>
+    driver.stats[stat] > driver.stats[strongest] ? stat : strongest,
+  );
+
+  return {
+    carNumber: vehicle.number,
+    driverName: driver.name,
+    setupConfidence,
+    crewFeedback: getCrewFeedback(setupConfidence),
+    insight: `${strongestTrackStat} (${driver.stats[strongestTrackStat]}) was the strongest ${input.track.name}-relevant signal.`,
+    qualifyingEffect: formatSessionEffect(
+      'Qualifying preparation',
+      input.selectedChoice.effects.qualifyingPace,
+    ),
+    raceEffect: formatSessionEffect('Race preparation', input.selectedChoice.effects.racePace),
+  };
+}
+
+export function createPracticeInput(
+  selectedChoice: PracticeChoice,
+  state: GameState = starterGameState,
+): PracticeInput | undefined {
+  const { race, track } = getNextRace(state);
+  const crewChief = state.staff.find((staff) => staff.role === 'Crew Chief' && staff.active);
+
+  if (!race || !track || !crewChief) {
+    return undefined;
+  }
+
+  const entries = state.vehicles.flatMap((vehicle) => {
+    const driver = state.drivers.find((item) => item.id === vehicle.assignedDriverId);
+    return driver && vehicle.active ? [{ driver, vehicle }] : [];
+  });
+
+  return {
+    race,
+    track,
+    team: state.team,
+    crewChiefQuality: crewChief.quality,
+    entries,
+    selectedChoice,
+  };
+}
+
+export function resolvePractice(input: PracticeInput): PracticeResult {
+  return {
+    raceId: input.race.id,
+    raceName: input.race.name,
+    trackName: input.track.name,
+    trackType: input.track.type,
+    selectedChoice: input.selectedChoice,
+    entries: input.entries.map((entry) => resolveEntry(input, entry)),
+  };
+}
