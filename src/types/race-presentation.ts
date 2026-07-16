@@ -4,6 +4,11 @@ export type RaceSessionKind = 'qualifying' | 'race';
 export type PlaybackSpeed = 1 | 2 | 4;
 export type DriverPaceMode = 'Conserve' | 'Balanced' | 'Push';
 export type TireStatus = 'New' | 'Good' | 'Used' | 'Worn';
+export type OvalPresentationPhase =
+  | 'Front Straight'
+  | 'Turns 1–2'
+  | 'Back Straight'
+  | 'Turns 3–4';
 
 export type CarSpriteMetadata = {
   bodyColor: string;
@@ -24,7 +29,7 @@ export type RacePresentationEntrant = {
   qualifyingOnTrack: boolean;
   qualifyingStartDistance: number;
   raceStartDistance: number;
-  pacePerTick: number;
+  paceFactor: number;
   tireStatus: TireStatus;
   tirePercent: number;
   fuelPercent: number;
@@ -44,7 +49,15 @@ export type RacePresentationConfig = {
   prototypeFieldSize: number;
   visibleCarLimit: number;
   cameraWindow: number;
-  updateIntervalMs: number;
+  sampleIntervalMs: number;
+  visualInterpolationMs: number;
+  ovalCycleMs: number;
+  sessionDurationMs: number;
+  qualifyingResultDurationMs: number;
+  presentationTravelLaps: number;
+  worldMotionPixelsPerSecond: number;
+  bankAngleDegrees: number;
+  turnCarAngleDegrees: number;
 };
 
 export type RunningOrderEntry = RacePresentationEntrant & {
@@ -64,4 +77,9 @@ export type RacePresentationModel = {
   currentLap: number;
   sessionProgress: number;
   focusedEntry: RunningOrderEntry;
+  elapsedMs: number;
+  isComplete: boolean;
+  activeQualifyingEntryId?: string;
+  qualifyingRunNumber?: number;
+  ovalPhase: OvalPresentationPhase;
 };

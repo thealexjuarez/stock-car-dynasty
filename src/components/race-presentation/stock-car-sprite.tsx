@@ -1,7 +1,11 @@
+import { useEffect } from 'react';
 import { Text, View } from 'react-native';
 import Animated, {
+  Easing,
   useAnimatedStyle,
+  useSharedValue,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 
 import type { CarSpriteMetadata } from '@/types/race-presentation';
@@ -13,6 +17,10 @@ type StockCarSpriteProps = {
   sceneY: number;
   scale: number;
   zIndex: number;
+  interpolationMs: number;
+  motionMs: SharedValue<number>;
+  ovalCycleMs: number;
+  turnCarAngleDegrees: number;
 };
 
 export function StockCarSprite({
@@ -22,27 +30,53 @@ export function StockCarSprite({
   sceneY,
   scale,
   zIndex,
+  interpolationMs,
+  motionMs,
+  ovalCycleMs,
+  turnCarAngleDegrees,
 }: StockCarSpriteProps) {
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        translateX: withTiming(sceneX - metadata.logicalWidth / 2, { duration: 620 }),
-      },
-      {
-        translateY: withTiming(sceneY - metadata.logicalHeight / 2, { duration: 320 }),
-      },
-      { scale },
-    ],
-  }), [metadata.logicalHeight, metadata.logicalWidth, scale, sceneX, sceneY]);
+  const targetX = useSharedValue(sceneX - metadata.logicalWidth / 2);
+  const targetY = useSharedValue(sceneY - metadata.logicalHeight / 2);
+
+  useEffect(() => {
+    const timing = { duration: interpolationMs, easing: Easing.linear };
+    targetX.value = withTiming(sceneX - metadata.logicalWidth / 2, timing);
+    targetY.value = withTiming(sceneY - metadata.logicalHeight / 2, timing);
+  }, [
+    interpolationMs,
+    metadata.logicalHeight,
+    metadata.logicalWidth,
+    sceneX,
+    sceneY,
+    targetX,
+    targetY,
+  ]);
+
+  const phaseSeed = Number.parseInt(carNumber, 10) || 0;
+  const animatedStyle = useAnimatedStyle(() => {
+    const progress = (motionMs.value % ovalCycleMs) / ovalCycleMs;
+    const signedTurn = Math.sin(progress * Math.PI * 2);
+    const laneDrift = Math.sin(motionMs.value / 1400 + phaseSeed) * 1.1;
+
+    return {
+      transform: [
+        { translateX: targetX.value },
+        { translateY: targetY.value + laneDrift },
+        { scale: scale * (1 + Math.abs(signedTurn) * 0.015) },
+        { rotateZ: `${signedTurn * turnCarAngleDegrees}deg` },
+      ],
+    };
+  }, [ovalCycleMs, phaseSeed, scale, turnCarAngleDegrees]);
 
   return (
     <Animated.View
-      pointerEvents="none"
+      testID={`car-sprite-${carNumber}`}
       style={[
         {
           height: metadata.logicalHeight,
           left: 0,
           position: 'absolute',
+          pointerEvents: 'none',
           top: 0,
           width: metadata.logicalWidth,
           zIndex,
@@ -53,96 +87,191 @@ export function StockCarSprite({
         style={{
           backgroundColor: 'rgba(0, 0, 0, 0.32)',
           borderRadius: 999,
+          bottom: 1,
+          height: 8,
+          left: 5,
+          position: 'absolute',
+          width: 99,
+        }}
+      />
+      <View
+        style={{
+          backgroundColor: '#0A0D12',
+          borderColor: '#5D6670',
+          borderRadius: 999,
+          borderWidth: 2,
           bottom: 0,
-          height: 7,
-          left: 7,
+          height: 18,
+          left: 18,
           position: 'absolute',
-          width: 76,
+          width: 18,
         }}
       />
       <View
         style={{
-          backgroundColor: metadata.accentColor,
-          borderColor: '#080B10',
-          borderTopLeftRadius: 12,
-          borderTopRightRadius: 8,
+          backgroundColor: '#1B222A',
+          borderColor: '#7E8790',
+          borderRadius: 999,
           borderWidth: 1,
-          height: 16,
-          left: 27,
+          bottom: 5,
+          height: 8,
+          left: 23,
           position: 'absolute',
-          top: 1,
-          width: 36,
+          width: 8,
         }}
       />
       <View
         style={{
-          backgroundColor: '#182431',
-          borderTopLeftRadius: 8,
-          borderTopRightRadius: 5,
-          height: 10,
-          left: 31,
+          backgroundColor: '#0A0D12',
+          borderColor: '#5D6670',
+          borderRadius: 999,
+          borderWidth: 2,
+          bottom: 0,
+          height: 18,
           position: 'absolute',
-          top: 4,
-          width: 27,
+          right: 15,
+          width: 18,
+        }}
+      />
+      <View
+        style={{
+          backgroundColor: '#1B222A',
+          borderColor: '#7E8790',
+          borderRadius: 999,
+          borderWidth: 1,
+          bottom: 5,
+          height: 8,
+          position: 'absolute',
+          right: 20,
+          width: 8,
         }}
       />
       <View
         style={{
           backgroundColor: metadata.bodyColor,
-          borderColor: '#080B10',
+          borderColor: '#090C10',
           borderCurve: 'continuous',
-          borderRadius: 8,
+          borderRadius: 10,
           borderWidth: 1,
-          bottom: 4,
-          height: 19,
+          bottom: 6,
+          height: 21,
           left: 3,
           position: 'absolute',
-          width: 82,
+          width: 101,
+        }}
+      />
+      <View
+        style={{
+          backgroundColor: metadata.bodyColor,
+          borderTopRightRadius: 10,
+          height: 16,
+          position: 'absolute',
+          right: 0,
+          top: 17,
+          transform: [{ rotateZ: '-4deg' }],
+          width: 31,
+        }}
+      />
+      <View
+        style={{
+          backgroundColor: metadata.bodyColor,
+          borderColor: '#090C10',
+          borderTopLeftRadius: 9,
+          borderTopRightRadius: 5,
+          borderWidth: 1,
+          height: 18,
+          left: 35,
+          position: 'absolute',
+          top: 7,
+          transform: [{ skewX: '-12deg' }],
+          width: 42,
+        }}
+      />
+      <View
+        style={{
+          backgroundColor: '#172531',
+          borderColor: '#90A7B4',
+          borderWidth: 1,
+          height: 11,
+          left: 39,
+          position: 'absolute',
+          top: 10,
+          transform: [{ skewX: '-12deg' }],
+          width: 15,
+        }}
+      />
+      <View
+        style={{
+          backgroundColor: '#203746',
+          borderColor: '#90A7B4',
+          borderWidth: 1,
+          height: 11,
+          left: 57,
+          position: 'absolute',
+          top: 10,
+          transform: [{ skewX: '-12deg' }],
+          width: 15,
+        }}
+      />
+      <View
+        style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.38)',
+          height: 2,
+          left: 8,
+          position: 'absolute',
+          right: 9,
+          top: 20,
         }}
       />
       <View
         style={{
           backgroundColor: metadata.accentColor,
-          bottom: 11,
-          height: 4,
-          left: 5,
+          bottom: 9,
+          height: 6,
+          left: 7,
           position: 'absolute',
-          width: 76,
+          transform: [{ skewX: '-22deg' }],
+          width: 91,
+        }}
+      />
+      <View
+        style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.25)',
+          bottom: 6,
+          height: 5,
+          left: 8,
+          position: 'absolute',
+          right: 7,
         }}
       />
       <View
         style={{
           backgroundColor: '#111820',
           height: 8,
-          left: 1,
+          left: 8,
+          position: 'absolute',
+          top: 9,
+          width: 3,
+        }}
+      />
+      <View
+        style={{
+          backgroundColor: '#111820',
+          height: 4,
+          left: 2,
           position: 'absolute',
           top: 6,
-          width: 4,
+          transform: [{ rotateZ: '-4deg' }],
+          width: 18,
         }}
       />
       <View
         style={{
-          backgroundColor: '#0A0D12',
-          borderColor: '#5B6470',
-          borderRadius: 999,
-          borderWidth: 1,
-          bottom: 0,
-          height: 13,
-          left: 15,
+          backgroundColor: '#111820',
+          bottom: 5,
+          height: 3,
           position: 'absolute',
-          width: 13,
-        }}
-      />
-      <View
-        style={{
-          backgroundColor: '#0A0D12',
-          borderColor: '#5B6470',
-          borderRadius: 999,
-          borderWidth: 1,
-          bottom: 0,
-          height: 13,
-          position: 'absolute',
-          right: 14,
+          right: 0,
           width: 13,
         }}
       />
@@ -150,14 +279,11 @@ export function StockCarSprite({
         selectable={false}
         style={{
           color: metadata.numberColor,
-          fontSize: 12,
+          fontSize: carNumber.length > 1 ? 13 : 15,
           fontWeight: '900',
-          left: 36,
+          left: carNumber.length > 1 ? 46 : 50,
           position: 'absolute',
-          textShadowColor: '#07090D',
-          textShadowOffset: { width: 0, height: 1 },
-          textShadowRadius: 2,
-          top: 13,
+          top: 21,
         }}>
         {carNumber}
       </Text>

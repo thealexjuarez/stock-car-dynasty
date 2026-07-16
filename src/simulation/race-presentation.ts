@@ -5,6 +5,7 @@ import type {
   RunningOrderEntry,
   SceneCar,
 } from '@/types/race-presentation';
+import { getOvalPresentationPhase } from '@/presentation/oval-presentation';
 
 const getStartDistance = (
   entrant: RacePresentationEntrant,
@@ -17,8 +18,15 @@ const getStartDistance = (
 const getDistance = (
   entrant: RacePresentationEntrant,
   config: RacePresentationConfig,
-  tick: number,
-) => getStartDistance(entrant, config) + entrant.pacePerTick * tick;
+  elapsedMs: number,
+) => {
+  const progress = Math.min(1, elapsedMs / config.sessionDurationMs);
+
+  return (
+    getStartDistance(entrant, config) +
+    config.presentationTravelLaps * progress * entrant.paceFactor
+  );
+};
 
 function getInterval(leaderDistance: number, distance: number, position: number) {
   if (position === 1) {
@@ -31,10 +39,10 @@ function getInterval(leaderDistance: number, distance: number, position: number)
 export function getRunningOrder(
   entrants: readonly RacePresentationEntrant[],
   config: RacePresentationConfig,
-  tick: number,
+  elapsedMs: number,
 ): RunningOrderEntry[] {
   const ordered = entrants
-    .map((entrant) => ({ entrant, distance: getDistance(entrant, config, tick) }))
+    .map((entrant) => ({ entrant, distance: getDistance(entrant, config, elapsedMs) }))
     .sort((left, right) => right.distance - left.distance);
   const leaderDistance = ordered[0]?.distance ?? 0;
 
@@ -82,13 +90,35 @@ export function getVisibleSceneCars(
     .sort((left, right) => left.entrant.lane - right.entrant.lane);
 }
 
+export function getQualifyingRunState(
+  entrants: readonly RacePresentationEntrant[],
+  config: RacePresentationConfig,
+  elapsedMs: number,
+) {
+  if (config.kind !== 'qualifying') {
+    return {};
+  }
+
+  const playerEntries = entrants.filter((entrant) => entrant.isPlayerTeam);
+  const runDurationMs =
+    (config.sessionDurationMs - config.qualifyingResultDurationMs) /
+    Math.max(1, playerEntries.length);
+  const runIndex = Math.floor(elapsedMs / runDurationMs);
+  const activeEntry = playerEntries[runIndex];
+
+  return {
+    activeEntryId: activeEntry?.id,
+    runNumber: activeEntry ? runIndex + 1 : undefined,
+  };
+}
+
 export function createRacePresentationModel(
   entrants: readonly RacePresentationEntrant[],
   config: RacePresentationConfig,
-  tick: number,
+  elapsedMs: number,
   focusedDriverId: string,
 ): RacePresentationModel {
-  const runningOrder = getRunningOrder(entrants, config, tick);
+  const runningOrder = getRunningOrder(entrants, config, elapsedMs);
   const focusedEntry = runningOrder.find(
     (entry) => entry.playerDriverId === focusedDriverId,
   );
@@ -97,11 +127,12 @@ export function createRacePresentationModel(
     throw new Error(`Missing focused player driver: ${focusedDriverId}`);
   }
 
-  const currentLap = Math.min(config.totalLaps, Math.floor(focusedEntry.distance) + 1);
-  const sessionProgress = Math.min(
-    100,
-    Math.max(0, (focusedEntry.distance / config.totalLaps) * 100),
-  );
+  const sessionProgress = Math.min(100, (elapsedMs / config.sessionDurationMs) * 100);
+  const qualifyingRunState = getQualifyingRunState(entrants, config, elapsedMs);
+  const currentLap =
+    config.kind === 'qualifying'
+      ? Math.min(config.totalLaps, qualifyingRunState.runNumber ?? config.totalLaps)
+      : Math.min(config.totalLaps, Math.floor(focusedEntry.distance) + 1);
 
   return {
     runningOrder,
@@ -109,5 +140,10 @@ export function createRacePresentationModel(
     currentLap,
     sessionProgress,
     focusedEntry,
+    elapsedMs,
+    isComplete: elapsedMs >= config.sessionDurationMs,
+    activeQualifyingEntryId: qualifyingRunState.activeEntryId,
+    qualifyingRunNumber: qualifyingRunState.runNumber,
+    ovalPhase: getOvalPresentationPhase(elapsedMs, config.ovalCycleMs),
   };
 }

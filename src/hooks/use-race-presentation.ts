@@ -4,7 +4,10 @@ import {
   getRacePresentationConfig,
   getRacePresentationEntrants,
 } from '@/data/race-presentation-data';
-import { createRacePresentationModel } from '@/simulation/race-presentation';
+import {
+  createRacePresentationModel,
+  getQualifyingRunState,
+} from '@/simulation/race-presentation';
 import type {
   DriverPaceMode,
   PlaybackSpeed,
@@ -24,31 +27,52 @@ export function useRacePresentation(kind: RaceSessionKind) {
     throw new Error('Race presentation requires at least one player driver');
   }
 
-  const [focusedDriverId, setFocusedDriverId] = useState(initialDriverId);
+  const [manualFocusedDriverId, setManualFocusedDriverId] = useState<string>();
   const [isPaused, setIsPaused] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(1);
-  const [tick, setTick] = useState(0);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const [paceModes, setPaceModes] = useState<Record<string, DriverPaceMode>>(() =>
     Object.fromEntries(
       playerEntries.map((entry) => [entry.playerDriverId!, 'Balanced' as const]),
     ),
   );
+  const isComplete = elapsedMs >= config.sessionDurationMs;
 
   useEffect(() => {
-    if (isPaused) {
+    if (isPaused || isComplete) {
       return;
     }
 
     const interval = setInterval(() => {
-      setTick((current) => current + playbackSpeed);
-    }, config.updateIntervalMs);
+      setElapsedMs((current) =>
+        Math.min(
+          config.sessionDurationMs,
+          current + config.sampleIntervalMs * playbackSpeed,
+        ),
+      );
+    }, config.sampleIntervalMs);
 
     return () => clearInterval(interval);
-  }, [config.updateIntervalMs, isPaused, playbackSpeed]);
+  }, [
+    config.sampleIntervalMs,
+    config.sessionDurationMs,
+    isComplete,
+    isPaused,
+    playbackSpeed,
+  ]);
 
+  const qualifyingRunState = useMemo(
+    () => getQualifyingRunState(entrants, config, elapsedMs),
+    [config, elapsedMs, entrants],
+  );
+  const activeQualifyingDriverId = entrants.find(
+    (entrant) => entrant.id === qualifyingRunState.activeEntryId,
+  )?.playerDriverId;
+  const focusedDriverId =
+    manualFocusedDriverId ?? activeQualifyingDriverId ?? initialDriverId;
   const model = useMemo(
-    () => createRacePresentationModel(entrants, config, tick, focusedDriverId),
-    [config, entrants, focusedDriverId, tick],
+    () => createRacePresentationModel(entrants, config, elapsedMs, focusedDriverId),
+    [config, elapsedMs, entrants, focusedDriverId],
   );
 
   const setPaceMode = (driverId: string, paceMode: DriverPaceMode) => {
@@ -63,7 +87,7 @@ export function useRacePresentation(kind: RaceSessionKind) {
     isPaused,
     playbackSpeed,
     paceModes,
-    setFocusedDriverId,
+    setFocusedDriverId: setManualFocusedDriverId,
     setIsPaused,
     setPlaybackSpeed,
     setPaceMode,

@@ -26,24 +26,28 @@ export function SessionStatusStrip({
         borderRadius: theme.cards.radius,
         borderWidth: 1,
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: theme.spacing.sm,
+        gap: 6,
         justifyContent: 'space-between',
-        minHeight: 48,
-        paddingHorizontal: theme.spacing.md,
-        paddingVertical: theme.spacing.sm,
+        minHeight: 34,
+        paddingHorizontal: theme.spacing.sm,
+        paddingVertical: 3,
       }}>
-      <View style={{ flex: 1, minWidth: 130 }}>
-        <AppText variant="eyebrow" tone="accent">{config.sessionLabel}</AppText>
-        <AppText variant="caption">{trackName}</AppText>
+      <View style={{ alignItems: 'center', flex: 1, flexDirection: 'row', gap: 6, minWidth: 0 }}>
+        <AppText variant="eyebrow" tone="accent" style={{ fontSize: 9 }}>
+          {config.sessionLabel}
+        </AppText>
+        <AppText numberOfLines={1} variant="caption" style={{ flexShrink: 1, fontSize: 10 }}>
+          {trackName}
+        </AppText>
       </View>
-      <AppText variant="caption" style={{ fontVariant: ['tabular-nums'] }}>
-        {config.kind === 'qualifying' ? 'Attempt' : 'Lap'} {currentLap} / {config.totalLaps}
+      <AppText variant="caption" style={{ fontSize: 10, fontVariant: ['tabular-nums'] }}>
+        {config.kind === 'qualifying' ? 'Run' : 'Lap'} {currentLap}/{config.totalLaps}
       </AppText>
-      <AppText variant="caption" tone="muted">
+      <AppText numberOfLines={1} variant="caption" tone="muted" style={{ fontSize: 9 }}>
         {config.weather} · {config.trackCondition} · {config.temperatureFahrenheit}°F
       </AppText>
       <StatusBadge
+        compact
         label={config.cautionState}
         tone={config.cautionState === 'Green' ? 'green' : 'yellow'}
       />

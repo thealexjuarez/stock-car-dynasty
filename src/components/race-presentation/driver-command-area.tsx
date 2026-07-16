@@ -18,8 +18,8 @@ export function DriverCommandArea({
   onSelectMode,
 }: DriverCommandAreaProps) {
   return (
-    <View style={{ gap: theme.spacing.xs }}>
-      <AppText variant="eyebrow" tone="soft">Pace Command</AppText>
+    <View style={{ gap: compact ? 2 : theme.spacing.xs }}>
+      {compact ? null : <AppText variant="eyebrow" tone="soft">Pace Command</AppText>}
       <View style={{ flexDirection: 'row', gap: theme.spacing.xs }}>
         {paceModes.map((mode) => {
           const selected = mode === selectedMode;
@@ -36,7 +36,7 @@ export function DriverCommandArea({
                 borderRadius: 6,
                 borderWidth: 1,
                 flex: 1,
-                minHeight: 30,
+                minHeight: compact ? 24 : 30,
                 justifyContent: 'center',
                 opacity: pressed ? 0.75 : 1,
                 paddingHorizontal: 5,
