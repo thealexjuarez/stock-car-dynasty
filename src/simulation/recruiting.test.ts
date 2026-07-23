@@ -571,7 +571,7 @@ test('active-seat and manufacturer dealbreakers block acceptance', () => {
   assert.equal(evaluateContractOffer(mismatch, finn.id, finn.salaryDemand * 2, 3).unmetDealbreakers.length, 1);
 });
 
-test('migration adds state v3 recruiting defaults without retroactive RP or replaying settlements', () => {
+test('migration adds recruiting defaults without retroactive RP or replaying settlements', () => {
   const legacy = structuredClone(starterGameState) as Omit<GameState, 'recruiting'> & {
     recruiting?: GameState['recruiting'];
   };
@@ -581,7 +581,7 @@ test('migration adds state v3 recruiting defaults without retroactive RP or repl
   legacy.drivers[0].exp = 77;
   legacy.economy.processedTransactionIds = ['settlement:old'];
   const normalized = normalizeGameState(legacy as GameState);
-  assert.equal(normalized.stateVersion, 3);
+  assert.equal(normalized.stateVersion, 4);
   assert.equal(normalized.recruiting.spendableRp, 100);
   assert.equal(normalized.recruiting.processedTransactionIds.length, 0);
   assert.equal(normalized.team.cash, 123_456);
@@ -609,7 +609,7 @@ test('recruiting persists through reducer navigation and repairs do not reset it
   assert.equal(session.game.recruiting.campaigns[masonId].scoutingConfidence, afterRecruiting.campaigns[masonId].scoutingConfidence);
 });
 
-test('Market, profile, comparison, and offer routes are present while race and repair routes remain', () => {
+test('Market routes remain while full-field race and repair routes are present', () => {
   const cwd = process.cwd();
   assert.match(readFileSync(`${cwd}/src/screens/market-screen.tsx`, 'utf8'), /Driver Market/);
   assert.match(readFileSync(`${cwd}/src/app/recruiting\/[id].tsx`, 'utf8'), /ProspectProfileScreen/);
@@ -617,6 +617,12 @@ test('Market, profile, comparison, and offer routes are present while race and r
   assert.match(readFileSync(`${cwd}/src/app/recruiting/offer\/[id].tsx`, 'utf8'), /RecruitingOfferScreen/);
   const layout = readFileSync(`${cwd}/src/app/_layout.tsx`, 'utf8');
   assert.match(layout, /race-preview/);
+  assert.match(layout, /full-grid/);
+  assert.match(layout, /full-results/);
   assert.match(layout, /vehicles\/\[number\]/);
   assert.match(layout, /recruiting\/offer\/\[id\]/);
+  assert.match(
+    readFileSync(`${cwd}/src/screens/league-screen.tsx`, 'utf8'),
+    /Driver Standings/,
+  );
 });

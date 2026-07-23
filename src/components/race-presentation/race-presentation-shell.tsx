@@ -128,7 +128,7 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
           }}>
           <TimingTower
             compact={compact}
-            runningOrder={model.runningOrder}
+            runningOrder={model.timingTowerOrder}
             style={{ width: timingWidth }}
           />
           <RaceScene

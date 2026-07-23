@@ -10,6 +10,7 @@ import { Screen } from '@/components/shared/screen';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { postSettlementFlow } from '@/data/race-weekend-navigation';
+import { RACE_READY_THRESHOLD } from '@/data/repair-config';
 import { getNextRace } from '@/data/starter-game-state';
 import { calculateWeekendSettlement } from '@/simulation/economy';
 import { useGameSession } from '@/state/game-session';
@@ -39,12 +40,11 @@ export function RaceResultsScreen() {
   }
 
   const settlement = calculateWeekendSettlement(state.game, result);
+  const winner = result.entries[0];
+  const poleWinner = state.weekend.qualifying?.entries[0];
 
   const advance = () => {
-    if (isClosingRef.current) {
-      return;
-    }
-
+    if (isClosingRef.current) return;
     isClosingRef.current = true;
     setIsClosing(true);
     advanceEvent();
@@ -71,13 +71,32 @@ export function RaceResultsScreen() {
           {raceWeekendCopy.results.eyebrow} · {track.type}
         </AppText>
         <AppText variant="hero">{raceWeekendCopy.results.title}</AppText>
-        <AppText tone="muted">{race.name} at {track.name}</AppText>
+        <AppText tone="muted">{race.name} at {track.name} · Official</AppText>
       </View>
 
-      {result.entries.filter((entry) => entry.isPlayerTeam).map((entry) => (
-        <AppCard
-          key={entry.id}
-          style={{ borderColor: theme.colors.caution, gap: theme.spacing.sm, padding: theme.spacing.md }}>
+      <AppCard style={{ borderColor: theme.colors.victory, padding: theme.spacing.md }}>
+        <AppText variant="eyebrow" tone="accent">Race Winner</AppText>
+        <AppText variant="title">#{winner.carNumber} · {winner.driverName}</AppText>
+        <AppText tone="muted">
+          {winner.teamName} · started P{winner.startPosition}
+        </AppText>
+        {poleWinner ? (
+          <AppText tone="soft" variant="caption">
+            Pole: #{poleWinner.carNumber} {poleWinner.driverName}
+          </AppText>
+        ) : null}
+      </AppCard>
+
+      {result.entries.filter((entry) => entry.isPlayerTeam).map((entry) => {
+        const vehicle = state.game.vehicles.find((item) => item.id === entry.vehicleId);
+        const postRaceCondition = Math.max(
+          0,
+          (vehicle?.condition ?? 0) - entry.conditionLoss,
+        );
+        return (
+          <AppCard
+            key={entry.id}
+            style={{ borderColor: theme.colors.caution, gap: theme.spacing.sm, padding: theme.spacing.md }}>
           <View style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }}>
             <View>
               <AppText variant="title">P{entry.finishPosition} · Car #{entry.carNumber}</AppText>
@@ -95,66 +114,30 @@ export function RaceResultsScreen() {
             )}
           />
           <AppRow compact label={raceWeekendCopy.results.exp} detail={`+${entry.exp}`} />
-          <AppRow
-            compact
-            label={raceWeekendCopy.results.damage}
-            detail={`-${entry.conditionLoss}%`}
-          />
-        </AppCard>
-      ))}
+            <AppRow compact label={raceWeekendCopy.results.damage} detail={`-${entry.conditionLoss}%`} />
+            <AppRow
+              compact
+              label="Post-Race Readiness"
+              detail={
+                postRaceCondition >= RACE_READY_THRESHOLD
+                  ? `${postRaceCondition}% · Race Ready`
+                  : `${postRaceCondition}% · Needs Work`
+              }
+            />
+          </AppCard>
+        );
+      })}
 
       <AppCard style={{ borderColor: theme.colors.victory, padding: theme.spacing.md }}>
         <AppText variant="eyebrow" tone="accent">Weekend Earnings</AppText>
-        <AppText variant="title">{raceWeekendCopy.results.closeoutTitle}</AppText>
-        {settlement.winningsByCar.map((line) => (
-          <AppRow
-            compact
-            key={line.vehicleId}
-            label={`Car #${line.carNumber} · P${line.finishPosition}`}
-            detail={money.format(line.amount)}
-          />
-        ))}
-        <AppRow
-          compact
-          label="Total Race Winnings"
-          detail={money.format(settlement.totalRaceWinnings)}
-        />
-        <AppRow
-          compact
-          label="Sponsor Payment"
-          detail={money.format(settlement.sponsorIncome)}
-        />
-        <AppRow
-          compact
-          label="Operating Cost"
-          detail={`-${money.format(settlement.operatingCostBase)}`}
-        />
+        <AppRow compact label="Race Winnings" detail={money.format(settlement.totalRaceWinnings)} />
+        <AppRow compact label="Sponsor Payment" detail={money.format(settlement.sponsorIncome)} />
+        <AppRow compact label="Operating Cost" detail={`-${money.format(settlement.operatingCostBase)}`} />
         {settlement.budgetFixerDiscount > 0 ? (
-          <AppRow
-            compact
-            label="Budget Fixer"
-            detail={`+${money.format(settlement.budgetFixerDiscount)}`}
-          />
+          <AppRow compact label="Budget Fixer" detail={`+${money.format(settlement.budgetFixerDiscount)}`} />
         ) : null}
-        <AppRow
-          compact
-          label="Repair Spending · Paid in Repair Bay"
-          detail={`-${money.format(settlement.repairSpending)}`}
-        />
-        <AppRow
-          compact
-          label="Net Weekend"
-          detail={money.format(settlement.netWeekend)}
-        />
-        <AppRow
-          compact
-          label="Updated Team Cash"
-          detail={money.format(settlement.cashAfter)}
-        />
-        <AppText tone="muted">
-          Repairs stay player-controlled. Returning to the shop posts this
-          settlement once, then advances the calendar.
-        </AppText>
+        <AppRow compact label="Net Weekend" detail={money.format(settlement.netWeekend)} />
+        <AppRow compact label="Updated Team Cash" detail={money.format(settlement.cashAfter)} />
       </AppCard>
 
       {settlement.operatingCostShortfall > 0 ? (
@@ -162,34 +145,16 @@ export function RaceResultsScreen() {
           <AppText variant="title">Operating Cost Shortfall</AppText>
           <AppText tone="muted">
             The team is short {money.format(settlement.operatingCostShortfall)}.
-            Cash will remain at $0 and the shortfall will be recorded without
-            corrupting the weekend settlement.
+            Cash remains at $0 and the shortfall is recorded safely.
           </AppText>
         </AppCard>
       ) : null}
 
-      <AppCard style={{ padding: theme.spacing.md }}>
-        <AppText variant="title">Race Development</AppText>
-        <AppRow compact label={raceWeekendCopy.results.exp} detail={`+${result.playerExp}`} />
-        <AppRow
-          compact
-          label={raceWeekendCopy.results.damage}
-          detail={`-${result.playerConditionLoss}%`}
-        />
-      </AppCard>
-
-      <AppCard style={{ gap: theme.spacing.sm, padding: theme.spacing.md }}>
-        <AppText variant="title">{raceWeekendCopy.results.finishingOrder}</AppText>
-        {result.entries.map((entry) => (
-          <AppRow
-            compact
-            key={entry.id}
-            label={`P${entry.finishPosition} · #${entry.carNumber}`}
-            detail={`${entry.driverName}${entry.status === 'DNF' ? ' · DNF' : ''}`}
-          />
-        ))}
-      </AppCard>
-
+      <AppButton
+        label="View Full Official Results"
+        onPress={() => router.push('/full-results' as Href)}
+        variant="secondary"
+      />
     </Screen>
   );
 }

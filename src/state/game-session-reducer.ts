@@ -122,6 +122,21 @@ function cloneGameState(state: GameState): GameState {
           }
         : undefined,
     },
+    raceField: {
+      organizations: state.raceField.organizations.map((organization) => ({
+        ...organization,
+      })),
+      opponentDrivers: state.raceField.opponentDrivers.map((driver) => ({
+        ...driver,
+        archetypes: [driver.archetypes[0], driver.archetypes[1]],
+        stats: { ...driver.stats },
+      })),
+      entries: state.raceField.entries.map((entry) => ({ ...entry })),
+      standings: state.raceField.standings.map((standing) => ({
+        ...standing,
+      })),
+      processedRaceIds: [...state.raceField.processedRaceIds],
+    },
   };
 }
 

@@ -44,6 +44,7 @@ export function TimingTower({ compact, runningOrder, style }: TimingTowerProps) 
         initialNumToRender={10}
         keyExtractor={(item) => item.id}
         maxToRenderPerBatch={10}
+        scrollEnabled={false}
         renderItem={({ item }) => (
           <View
             style={{

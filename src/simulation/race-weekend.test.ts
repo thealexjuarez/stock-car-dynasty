@@ -273,19 +273,19 @@ test('the same event seed produces identical qualifying and race outcomes', () =
 
   assert.deepEqual(first.weekend.qualifying, second.weekend.qualifying);
   assert.deepEqual(first.weekend.race, second.weekend.race);
-  assert.equal(first.weekend.qualifying?.entries.length, 12);
-  assert.equal(first.weekend.race?.entries.length, 12);
+  assert.equal(first.weekend.qualifying?.entries.length, 32);
+  assert.equal(first.weekend.race?.entries.length, 32);
   assert.deepEqual(
     first.weekend.race?.entries
       .filter((entry) => entry.isPlayerTeam)
       .map((entry) => [entry.carNumber, entry.finishPosition]),
     [
-      ['45', 2],
-      ['46', 9],
+      ['45', 8],
+      ['46', 17],
     ],
   );
-  assert.equal(first.weekend.race?.playerPayout, 46_000);
-  assert.equal(first.weekend.race?.playerExp, 312);
+  assert.equal(first.weekend.race?.playerPayout, 29_000);
+  assert.equal(first.weekend.race?.playerExp, 216);
   assert.equal(first.weekend.race?.playerConditionLoss, 5);
 });
 
@@ -316,11 +316,11 @@ test('both Apex cars receive their correct payout tiers', () => {
       line.amount,
     ]),
     [
-      ['45', 2, 28_000],
-      ['46', 9, 18_000],
+      ['45', 8, 18_000],
+      ['46', 17, 11_000],
     ],
   );
-  assert.equal(settlement.totalRaceWinnings, 46_000);
+  assert.equal(settlement.totalRaceWinnings, 29_000);
 });
 
 test('settlement posts sponsor income and operating cost exactly once', () => {
@@ -335,9 +335,9 @@ test('settlement posts sponsor income and operating cost exactly once', () => {
   assert.equal(settlement.operatingCostBase, 18_000);
   assert.equal(settlement.budgetFixerDiscount, 1_800);
   assert.equal(settlement.operatingCostCharged, 16_200);
-  assert.equal(settlement.settlementCashChange, 55_800);
-  assert.equal(settlement.netWeekend, 55_800);
-  assert.equal(advanced.game.team.cash, cashBefore + 55_800);
+  assert.equal(settlement.settlementCashChange, 38_800);
+  assert.equal(settlement.netWeekend, 38_800);
+  assert.equal(advanced.game.team.cash, cashBefore + 38_800);
   assert.equal(
     advanced.game.economy.settlementHistory.filter(
       (record) => record.id === action.actionId,
@@ -775,7 +775,7 @@ test('older state normalizes canon and new fields without resetting progress', (
     (driver) => driver.id === 'driver-aiden-voss',
   )!;
 
-  assert.equal(normalized.stateVersion, 3);
+  assert.equal(normalized.stateVersion, 4);
   assert.equal(normalized.team.manufacturerId, 'chevrolat');
   assert.equal(normalized.team.cash, 412_345);
   assert.equal(normalized.week, 3);

@@ -6,6 +6,7 @@ import type {
   SceneCar,
 } from '@/types/race-presentation';
 import { getOvalPresentationPhase } from '@/presentation/oval-presentation';
+import { selectFocusedTimingTower } from '@/simulation/race-field';
 
 const getStartDistance = (
   entrant: RacePresentationEntrant,
@@ -43,7 +44,11 @@ export function getRunningOrder(
 ): RunningOrderEntry[] {
   const ordered = entrants
     .map((entrant) => ({ entrant, distance: getDistance(entrant, config, elapsedMs) }))
-    .sort((left, right) => right.distance - left.distance);
+    .sort(
+      (left, right) =>
+        right.distance - left.distance ||
+        left.entrant.id.localeCompare(right.entrant.id),
+    );
   const leaderDistance = ordered[0]?.distance ?? 0;
 
   return ordered.map(({ entrant, distance }, index) => ({
@@ -136,6 +141,7 @@ export function createRacePresentationModel(
 
   return {
     runningOrder,
+    timingTowerOrder: selectFocusedTimingTower(runningOrder),
     visibleCars: getVisibleSceneCars(runningOrder, focusedEntry, config),
     currentLap,
     sessionProgress,

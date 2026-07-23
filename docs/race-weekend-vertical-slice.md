@@ -14,7 +14,7 @@ controls. It receives the seeded grid and finishing order from weekend state.
 
 1. The race preview reads the event identified by `GameState.nextRaceId`.
 2. Completing practice stores one `PracticeResult`, including numeric qualifying and race bonuses.
-3. Beginning qualifying resolves and stores a seeded `QualifyingResult` for the whole prototype
+3. Beginning qualifying resolves and stores a seeded `QualifyingResult` for the complete 32-car
    field.
 4. Completing qualifying reveals the stored starting grid.
 5. Starting the race resolves and stores a seeded `RaceResult`; playback presents that outcome.
@@ -26,17 +26,22 @@ controls. It receives the seeded grid and finishing order from weekend state.
 
 - The weekend seed is derived from season and race ID. Per-entry qualifying, incident, race, and
   damage values use stable namespaced hashes, so call order cannot change an outcome.
-- The current complete slice uses the existing Bible-aligned 12-car presentation roster. The Bible
-  establishes a 32-car ERCA field, but the remaining canonical entrants are not yet present in this
-  repository; invented drivers were not added.
-- Opponent baseline strength reuses the centralized prototype pace factors. Player strength uses
+- The field uses two canonical Apex entries and 30 provisional fictional
+  opponents. Their identities, organizations, numbers, manufacturers, ratings,
+  and assignments live in persistent state instead of regenerating per event.
+- Opponent baseline strength combines track-aware driver rating at 60% and
+  organization/equipment rating at 40%. Player strength uses
   current driver ratings, track-relevant stats, vehicle performance/condition, team quality, and
   the stored practice bonus.
+- Manufacturer is identity-only and contributes no performance modifier.
+- Standings use a centralized provisional 32-to-1 finish-points scale with no
+  bonus points because no Bible-aligned points table exists yet.
 - Exact payout, EXP, variance, incident, and damage values are not locked by the available Bible
   data. Conservative vertical-slice values are centralized in `src/data/race-weekend-config.ts` so
   they can be replaced without changing screens or state transitions.
-- State is intentionally in memory. Save/load, contracts, recruiting, facilities, sponsorship
-  expansion, and other progression systems remain out of scope.
+- State remains in memory, but state version 4 normalization safely adds the
+  persistent field to older campaigns. Facilities, sponsorship expansion,
+  transfers, and opponent finances remain out of scope.
 - Live-race pace buttons remain presentation controls and do not alter the seeded result in this
   slice.
 

@@ -23,6 +23,10 @@ export type RacePresentationEntrant = {
   id: string;
   carNumber: string;
   driverName: string;
+  driverId: string;
+  teamId: string;
+  teamName: string;
+  manufacturerId: ManufacturerId;
   playerDriverId?: string;
   isPlayerTeam: boolean;
   lane: 0 | 1 | 2;
@@ -46,7 +50,7 @@ export type RacePresentationConfig = {
   temperatureFahrenheit: number;
   cautionState: 'Green' | 'Caution';
   canonicalFieldSize: number;
-  prototypeFieldSize: number;
+  fieldSize: number;
   visibleCarLimit: number;
   cameraWindow: number;
   sampleIntervalMs: number;
@@ -73,6 +77,7 @@ export type SceneCar = {
 
 export type RacePresentationModel = {
   runningOrder: RunningOrderEntry[];
+  timingTowerOrder: RunningOrderEntry[];
   visibleCars: SceneCar[];
   currentLap: number;
   sessionProgress: number;
