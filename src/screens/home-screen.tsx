@@ -11,8 +11,8 @@ import { StatusBadge } from '@/components/shared/status-badge';
 import {
   getNextRace,
   getTeamManufacturer,
-  starterGameState as state,
 } from '@/data/starter-game-state';
+import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
 const money = new Intl.NumberFormat('en-US', {
@@ -22,8 +22,10 @@ const money = new Intl.NumberFormat('en-US', {
 });
 
 export function HomeScreen() {
-  const { track } = getNextRace();
-  const manufacturer = getTeamManufacturer();
+  const { state: session } = useGameSession();
+  const state = session.game;
+  const { race, track } = getNextRace(state);
+  const manufacturer = getTeamManufacturer(state);
 
   return (
     <Screen>
@@ -49,11 +51,11 @@ export function HomeScreen() {
             <AppText variant="eyebrow" tone="accent">Next Recommended Action</AppText>
             <AppText variant="title">{track?.name} Race Preview</AppText>
           </View>
-          <StatusBadge label="Race 1 of 10" tone="red" />
+          <StatusBadge label={`Race ${race?.round ?? '—'} of ${state.calendar.length}`} tone="red" />
         </View>
         <AppText tone="muted">
-          The ERCA season opens at {track?.name}, a {track?.type.toLowerCase()} where awareness,
-          racecraft, and disciplined drafting matter.
+          The next ERCA weekend is at {track?.name}, a {track?.type.toLowerCase()} where the
+          track-specific driver ratings and car preparation will shape the result.
         </AppText>
         <Link href="/race-preview" asChild><AppButton label="Review Race Preview" /></Link>
       </AppCard>

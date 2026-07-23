@@ -4,7 +4,7 @@ import {
   getManufacturerById,
   manufacturerCatalog,
 } from '@/data/manufacturer-data';
-import type { Driver, DriverStat, GameState, TrackType } from '@/types/game';
+import type { Driver, DriverStat, GameState, TrackRisk, TrackType } from '@/types/game';
 
 export const starterDrivers: Driver[] = [
   {
@@ -29,7 +29,7 @@ export const starterDrivers: Driver[] = [
   },
 ];
 
-const trackInfo: [string,string,TrackType,DriverStat[],string,string,string][] = [
+const trackInfo: [string,string,TrackType,DriverStat[],TrackRisk,TrackRisk,string][] = [
   ['daytono','Daytono','Superspeedway',['Awareness','Racecraft','Restarts','Speed','Consistency'],'Low','High','Protect both cars early; draft with discipline and prioritize a clean opening finish.'],
   ['bristel','Bristel','Short Track',['Cornering','Restarts','Racecraft','Braking','Awareness'],'Medium','High','Track position and restart execution matter more than outright speed.'],
   ['atlantia','Atlantia','Intermediate',['Speed','Cornering','Tire Management','Racecraft','Consistency'],'High','Medium','Balance short-run pace against tire falloff.'],

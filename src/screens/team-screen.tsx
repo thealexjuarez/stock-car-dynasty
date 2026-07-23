@@ -8,12 +8,14 @@ import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
 import { SectionHeader } from '@/components/shared/section-header';
 import { StatusBadge } from '@/components/shared/status-badge';
-import { getTeamManufacturer, starterGameState } from '@/data/starter-game-state';
+import { getTeamManufacturer } from '@/data/starter-game-state';
+import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
 export function TeamScreen() {
-  const { team, drivers, vehicles } = starterGameState;
-  const manufacturer = getTeamManufacturer();
+  const { state } = useGameSession();
+  const { team, drivers, vehicles } = state.game;
+  const manufacturer = getTeamManufacturer(state.game);
 
   return (
     <Screen>
@@ -26,7 +28,7 @@ export function TeamScreen() {
       </View>
 
       <AppCard>
-        <SectionHeader title="Team Overview" subtitle="Where the program stands entering Week 1" />
+        <SectionHeader title="Team Overview" subtitle={`Where the program stands entering Week ${state.game.week}`} />
         <AppRow label="Team Reputation" detail={`${team.reputation}`} />
         <AppRow label="Brand Power" detail={`${team.brandPower}`} />
         <AppRow label="Car Performance" detail={`${team.carPerformance}`} />

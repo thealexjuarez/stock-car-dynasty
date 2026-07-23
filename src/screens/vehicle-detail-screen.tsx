@@ -5,15 +5,17 @@ import { AppRow } from '@/components/shared/app-row';
 import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
 import { StatusBadge } from '@/components/shared/status-badge';
-import { getTeamManufacturer, starterGameState } from '@/data/starter-game-state';
+import { getTeamManufacturer } from '@/data/starter-game-state';
+import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
 export function VehicleDetailScreen({ number }: { number: string }) {
-  const vehicle = starterGameState.vehicles.find((item) => item.number === number);
-  const driver = starterGameState.drivers.find(
+  const { state } = useGameSession();
+  const vehicle = state.game.vehicles.find((item) => item.number === number);
+  const driver = state.game.drivers.find(
     (item) => item.id === vehicle?.assignedDriverId,
   );
-  const manufacturer = getTeamManufacturer();
+  const manufacturer = getTeamManufacturer(state.game);
 
   if (!vehicle) {
     return (
@@ -27,7 +29,7 @@ export function VehicleDetailScreen({ number }: { number: string }) {
     <Screen>
       <View style={{ gap: theme.spacing.sm }}>
         <AppText variant="eyebrow" tone="accent">
-          {starterGameState.team.name}
+          {state.game.team.name}
         </AppText>
         <AppText variant="hero">Car #{vehicle.number}</AppText>
         <AppText tone="muted">

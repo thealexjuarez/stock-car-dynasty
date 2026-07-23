@@ -1,4 +1,3 @@
-import { Link } from 'expo-router';
 import { Pressable, View } from 'react-native';
 
 import { AppText } from '@/components/shared/app-text';
@@ -17,6 +16,7 @@ type SessionControlBarProps = {
   statusMessage: string;
   onSetPaused: (paused: boolean) => void;
   onSetPlaybackSpeed: (speed: PlaybackSpeed) => void;
+  onContinue: () => void;
 };
 
 export function SessionControlBar({
@@ -29,6 +29,7 @@ export function SessionControlBar({
   statusMessage,
   onSetPaused,
   onSetPlaybackSpeed,
+  onContinue,
 }: SessionControlBarProps) {
   return (
     <View
@@ -114,10 +115,10 @@ export function SessionControlBar({
         })}
       </View>
 
-      {kind === 'qualifying' && isComplete ? (
-        <Link href="/live-race" asChild>
-          <Pressable
+      {isComplete ? (
+        <Pressable
             accessibilityRole="button"
+            onPress={onContinue}
             style={({ pressed }) => ({
               alignItems: 'center',
               backgroundColor: theme.colors.victory,
@@ -128,10 +129,9 @@ export function SessionControlBar({
               paddingHorizontal: 9,
             })}>
             <AppText variant="caption" style={{ color: theme.colors.rubber, fontSize: 9 }}>
-              Continue
+              {kind === 'qualifying' ? 'View Grid' : 'View Results'}
             </AppText>
           </Pressable>
-        </Link>
       ) : kind === 'qualifying' ? (
         <View
           accessibilityState={{ disabled: true }}

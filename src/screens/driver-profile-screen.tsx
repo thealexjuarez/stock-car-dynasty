@@ -6,11 +6,12 @@ import { AppText } from '@/components/shared/app-text';
 import { ProgressBar } from '@/components/shared/progress-bar';
 import { Screen } from '@/components/shared/screen';
 import { StatusBadge } from '@/components/shared/status-badge';
-import { starterGameState } from '@/data/starter-game-state';
+import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
 export function DriverProfileScreen({ driverId }: { driverId: string }) {
-  const driver = starterGameState.drivers.find((item) => item.id === driverId);
+  const { state } = useGameSession();
+  const driver = state.game.drivers.find((item) => item.id === driverId);
 
   if (!driver) {
     return (

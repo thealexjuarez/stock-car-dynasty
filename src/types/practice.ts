@@ -31,9 +31,13 @@ export type PracticeInput = {
 };
 
 export type PracticeEntryResult = {
+  driverId: string;
+  vehicleId: string;
   carNumber: string;
   driverName: string;
   setupConfidence: number;
+  qualifyingPaceBonus: number;
+  racePaceBonus: number;
   crewFeedback: string;
   insight: string;
   qualifyingEffect: string;

@@ -1,4 +1,7 @@
+import { raceWeekendTuning } from '@/data/race-weekend-config';
 import { getNextRace, starterGameState } from '@/data/starter-game-state';
+import type { GameState } from '@/types/game';
+import type { RaceWeekendState, WeekendEntrant } from '@/types/race-weekend';
 import type {
   CarSpriteMetadata,
   RacePresentationConfig,
@@ -163,9 +166,12 @@ export function getRacePresentationConfig(kind: RaceSessionKind): RacePresentati
   };
 }
 
-export function getRacePresentationEntrants(): RacePresentationEntrant[] {
-  const playerEntries = starterGameState.vehicles.map((vehicle, index) => {
-    const driver = starterGameState.drivers.find(
+export function getRacePresentationEntrants(
+  state: GameState = starterGameState,
+  weekend?: RaceWeekendState,
+): RacePresentationEntrant[] {
+  const playerEntries = state.vehicles.map((vehicle, index) => {
+    const driver = state.drivers.find(
       (item) => item.id === vehicle.assignedDriverId,
     );
 
@@ -190,16 +196,56 @@ export function getRacePresentationEntrants(): RacePresentationEntrant[] {
       carCondition: vehicle.condition,
       sprite: {
         ...playerPaintSchemes[vehicle.number],
-        manufacturerId: starterGameState.team.manufacturerId,
+        manufacturerId: state.team.manufacturerId,
       },
     } satisfies RacePresentationEntrant;
   });
 
-  return [...canonicalPrototypeCompetitors, ...playerEntries];
+  const entries = [...canonicalPrototypeCompetitors, ...playerEntries];
+
+  if (!weekend) {
+    return entries;
+  }
+
+  const fieldSize = entries.length;
+
+  return entries.map((entry) => {
+    const qualifying = weekend?.qualifying?.entries.find((item) => item.id === entry.id);
+    const race = weekend?.race?.entries.find((item) => item.id === entry.id);
+    const qualifyingPosition = qualifying?.position ?? fieldSize;
+    const finishPosition = race?.finishPosition ?? qualifyingPosition;
+
+    return {
+      ...entry,
+      qualifyingStartDistance: 0.2 + (fieldSize - qualifyingPosition) * 0.025,
+      raceStartDistance: 7.3 + (fieldSize - qualifyingPosition) * 0.018,
+      paceFactor:
+        weekend?.phase === 'race' || weekend?.phase === 'results'
+          ? 0.99 + (fieldSize - finishPosition) * 0.002
+          : 0.99 + (fieldSize - qualifyingPosition) * 0.002,
+    };
+  });
 }
 
-export function getRacePresentationContext() {
-  const { race, track } = getNextRace();
+export function getWeekendEntrants(state: GameState = starterGameState): WeekendEntrant[] {
+  return getRacePresentationEntrants(state).map((entry) => ({
+    id: entry.id,
+    carNumber: entry.carNumber,
+    driverName: entry.driverName,
+    isPlayerTeam: entry.isPlayerTeam,
+    driverId: entry.playerDriverId,
+    vehicleId: entry.isPlayerTeam
+      ? state.vehicles.find((vehicle) => vehicle.assignedDriverId === entry.playerDriverId)?.id
+      : undefined,
+    baselineRating: entry.isPlayerTeam
+      ? 0
+      : raceWeekendTuning.aiBaselineCenter +
+        (entry.paceFactor - 1) * raceWeekendTuning.aiPaceFactorScale,
+  }));
+}
+
+export function getRacePresentationContext(state: GameState = starterGameState) {
+  const { race, track } = getNextRace(state);
 
   if (!race || !track) {
     throw new Error('Missing current race or track for race presentation');

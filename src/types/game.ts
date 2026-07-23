@@ -32,6 +32,7 @@ export type Manufacturer = {
     initials: string;
   };
 };
-export type Track = { id: string; name: string; type: TrackType; keyStats: DriverStat[]; tireWear: string; cautionRisk: string; strategyNote: string };
+export type TrackRisk = 'Low' | 'Medium' | 'High';
+export type Track = { id: string; name: string; type: TrackType; keyStats: DriverStat[]; tireWear: TrackRisk; cautionRisk: TrackRisk; strategyNote: string };
 export type RaceEvent = { id: string; round: number; week: number; name: string; trackId: string };
 export type GameState = { sanctioningBody: string; series: string; season: number; week: number; currentDate: string; team: Team; drivers: Driver[]; vehicles: Vehicle[]; staff: StaffMember[]; sponsors: Sponsor[]; manufacturers: Manufacturer[]; facilities: Facility[]; tracks: Track[]; calendar: RaceEvent[]; nextRaceId: string };

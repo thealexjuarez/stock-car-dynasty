@@ -10,13 +10,14 @@ import { StatusBadge } from '@/components/shared/status-badge';
 import {
   getNextRace,
   getTeamManufacturer,
-  starterGameState,
 } from '@/data/starter-game-state';
+import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
 export function RacePreviewScreen() {
-  const { race, track } = getNextRace();
-  const manufacturer = getTeamManufacturer();
+  const { state } = useGameSession();
+  const { race, track } = getNextRace(state.game);
+  const manufacturer = getTeamManufacturer(state.game);
 
   if (!race || !track) {
     return (
@@ -33,7 +34,7 @@ export function RacePreviewScreen() {
           Race {race.round} of 10 · Week {race.week}
         </AppText>
         <AppText variant="hero">{track.name}</AppText>
-        <AppText tone="muted">Opening weekend for the {starterGameState.series}</AppText>
+        <AppText tone="muted">Season {state.game.season} · {state.game.series}</AppText>
       </View>
 
       <AppCard style={{ borderColor: theme.colors.trackRed }}>
@@ -69,7 +70,7 @@ export function RacePreviewScreen() {
       <AppCard>
         <AppText variant="title">Garage Readiness</AppText>
         <AppRow label="Manufacturer" detail={manufacturer.displayName} />
-        {starterGameState.vehicles.map((vehicle) => (
+        {state.game.vehicles.map((vehicle) => (
           <AppRow
             key={vehicle.id}
             label={`Car #${vehicle.number}`}

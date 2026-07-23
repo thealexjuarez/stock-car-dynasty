@@ -74,9 +74,13 @@ function resolveEntry(input: PracticeInput, entry: PracticeEntryInput): Practice
   );
 
   return {
+    driverId: driver.id,
+    vehicleId: vehicle.id,
     carNumber: vehicle.number,
     driverName: driver.name,
     setupConfidence,
+    qualifyingPaceBonus: input.selectedChoice.effects.qualifyingPace,
+    racePaceBonus: input.selectedChoice.effects.racePace,
     crewFeedback: getCrewFeedback(setupConfidence),
     insight: `${strongestTrackStat} (${driver.stats[strongestTrackStat]}) was the strongest ${input.track.name}-relevant signal.`,
     qualifyingEffect: formatSessionEffect(

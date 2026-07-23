@@ -1,4 +1,4 @@
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { View } from 'react-native';
 
 import { AppButton } from '@/components/shared/app-button';
@@ -7,17 +7,13 @@ import { AppRow } from '@/components/shared/app-row';
 import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
 import { StatusBadge } from '@/components/shared/status-badge';
-import { getPracticeChoice, isPracticeChoiceId } from '@/data/practice-config';
-import { createPracticeInput, resolvePractice } from '@/simulation/practice';
+import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
 export function PracticeResultScreen() {
-  const { focus } = useLocalSearchParams<{ focus?: string | string[] }>();
-  const focusId = Array.isArray(focus) ? focus[0] : focus;
-  const input = isPracticeChoiceId(focusId)
-    ? createPracticeInput(getPracticeChoice(focusId))
-    : undefined;
-  const result = input ? resolvePractice(input) : undefined;
+  const router = useRouter();
+  const { state, beginQualifying } = useGameSession();
+  const result = state.weekend.practice;
 
   if (!result) {
     return (
@@ -30,6 +26,11 @@ export function PracticeResultScreen() {
       </Screen>
     );
   }
+
+  const continueToQualifying = () => {
+    beginQualifying();
+    router.push('/qualifying');
+  };
 
   return (
     <Screen>
@@ -72,9 +73,7 @@ export function PracticeResultScreen() {
         </AppCard>
       ))}
 
-      <Link href="/qualifying" asChild>
-        <AppButton label="Continue to Qualifying" />
-      </Link>
+      <AppButton label="Continue to Qualifying" onPress={continueToQualifying} />
     </Screen>
   );
 }

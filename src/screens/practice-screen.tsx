@@ -11,13 +11,15 @@ import { Screen } from '@/components/shared/screen';
 import { SectionHeader } from '@/components/shared/section-header';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { getPracticeChoice, practiceChoices } from '@/data/practice-config';
-import { getNextRace, starterGameState } from '@/data/starter-game-state';
+import { getNextRace } from '@/data/starter-game-state';
+import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 import type { PracticeChoiceId } from '@/types/practice';
 
 export function PracticeScreen() {
   const router = useRouter();
-  const { race, track } = getNextRace();
+  const { state, completePractice } = useGameSession();
+  const { race, track } = getNextRace(state.game);
   const [selectedChoiceId, setSelectedChoiceId] = useState<PracticeChoiceId | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const selectedChoice = selectedChoiceId ? getPracticeChoice(selectedChoiceId) : undefined;
@@ -40,14 +42,15 @@ export function PracticeScreen() {
       return;
     }
 
-    router.push({ pathname: '/practice-result', params: { focus: selectedChoiceId } });
+    completePractice(selectedChoiceId);
+    router.push('/practice-result');
   };
 
   return (
     <Screen>
       <View style={{ gap: theme.spacing.sm }}>
         <AppText variant="eyebrow" tone="accent">
-          Race {race.round} of {starterGameState.calendar.length} · Practice
+          Race {race.round} of {state.game.calendar.length} · Practice
         </AppText>
         <AppText variant="hero">{track.name}</AppText>
         <AppText tone="muted">{race.name}</AppText>
@@ -72,8 +75,8 @@ export function PracticeScreen() {
 
       <AppCard>
         <SectionHeader title="Apex Motorsports Entries" subtitle="Both cars receive the same practice focus" />
-        {starterGameState.vehicles.map((vehicle) => {
-          const driver = starterGameState.drivers.find(
+        {state.game.vehicles.map((vehicle) => {
+          const driver = state.game.drivers.find(
             (item) => item.id === vehicle.assignedDriverId,
           );
           return (

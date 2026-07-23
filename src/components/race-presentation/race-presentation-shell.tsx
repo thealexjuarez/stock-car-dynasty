@@ -1,3 +1,4 @@
+import { useRouter, type Href } from 'expo-router';
 import { View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +10,7 @@ import { TimingTower } from '@/components/race-presentation/timing-tower';
 import { getRacePresentationContext } from '@/data/race-presentation-data';
 import { useRacePresentation } from '@/hooks/use-race-presentation';
 import { theme } from '@/theme';
+import { useGameSession } from '@/state/game-session';
 import type { RacePresentationEntrant, RaceSessionKind } from '@/types/race-presentation';
 
 type RacePresentationShellProps = {
@@ -16,12 +18,14 @@ type RacePresentationShellProps = {
 };
 
 export function RacePresentationShell({ kind }: RacePresentationShellProps) {
+  const router = useRouter();
+  const { state, showGrid, showResults } = useGameSession();
   const { height, width } = useWindowDimensions();
   const compact = height < 500 || width < 900;
   const timingWidth = Math.max(132, Math.min(160, width * 0.18));
   const driverWidth = Math.max(188, Math.min(218, width * 0.25));
   const framePadding = height < 430 ? 6 : 8;
-  const { track } = getRacePresentationContext();
+  const { track } = getRacePresentationContext(state.game);
   const {
     config,
     model,
@@ -34,7 +38,17 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
     setIsPaused,
     setPlaybackSpeed,
     setPaceMode,
-  } = useRacePresentation(kind);
+  } = useRacePresentation(kind, state.game, state.weekend);
+  const continueSession = () => {
+    if (kind === 'qualifying') {
+      showGrid();
+      router.push('/starting-grid' as Href);
+      return;
+    }
+
+    showResults();
+    router.push('/race-results' as Href);
+  };
 
   const activeRunIndex = playerEntries.findIndex(
     (entry) => entry.id === model.activeQualifyingEntryId,
@@ -170,6 +184,7 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
           kind={kind}
           onSetPaused={setIsPaused}
           onSetPlaybackSpeed={setPlaybackSpeed}
+          onContinue={continueSession}
           playbackSpeed={playbackSpeed}
           progress={model.sessionProgress}
           progressLabel={progressLabel}

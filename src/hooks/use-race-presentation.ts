@@ -13,10 +13,19 @@ import type {
   PlaybackSpeed,
   RaceSessionKind,
 } from '@/types/race-presentation';
+import type { GameState } from '@/types/game';
+import type { RaceWeekendState } from '@/types/race-weekend';
 
-export function useRacePresentation(kind: RaceSessionKind) {
+export function useRacePresentation(
+  kind: RaceSessionKind,
+  game: GameState,
+  weekend: RaceWeekendState,
+) {
   const config = useMemo(() => getRacePresentationConfig(kind), [kind]);
-  const entrants = useMemo(() => getRacePresentationEntrants(), []);
+  const entrants = useMemo(
+    () => getRacePresentationEntrants(game, weekend),
+    [game, weekend],
+  );
   const playerEntries = useMemo(
     () => entrants.filter((entrant) => entrant.isPlayerTeam && entrant.playerDriverId),
     [entrants],
