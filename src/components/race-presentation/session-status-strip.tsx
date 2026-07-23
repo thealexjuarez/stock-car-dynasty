@@ -2,6 +2,7 @@ import { View } from 'react-native';
 
 import { AppText } from '@/components/shared/app-text';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { theme } from '@/theme';
 import type { RacePresentationConfig } from '@/types/race-presentation';
 
@@ -19,38 +20,46 @@ export function SessionStatusStrip({
   return (
     <View
       style={{
-        alignItems: 'center',
         backgroundColor: theme.colors.panelStrong,
         borderColor: theme.colors.border,
         borderCurve: 'continuous',
         borderRadius: theme.cards.radius,
         borderWidth: 1,
-        flexDirection: 'row',
-        gap: 6,
-        justifyContent: 'space-between',
-        minHeight: 34,
+        gap: 3,
+        minHeight: 46,
         paddingHorizontal: theme.spacing.sm,
-        paddingVertical: 3,
+        paddingVertical: 5,
       }}>
-      <View style={{ alignItems: 'center', flex: 1, flexDirection: 'row', gap: 6, minWidth: 0 }}>
-        <AppText variant="eyebrow" tone="accent" style={{ fontSize: 9 }}>
-          {config.sessionLabel}
+      <View style={{ alignItems: 'center', flexDirection: 'row', gap: 6 }}>
+        <AppText variant="eyebrow" tone="accent" style={{ fontSize: 8 }}>
+          {raceWeekendCopy.presentation.weekendStatus}
         </AppText>
-        <AppText numberOfLines={1} variant="caption" style={{ flexShrink: 1, fontSize: 10 }}>
+        <AppText numberOfLines={1} variant="caption" style={{ flex: 1, fontSize: 10 }}>
           {trackName}
         </AppText>
+        <StatusBadge
+          compact
+          label={config.cautionState}
+          tone={config.cautionState === 'Green' ? 'green' : 'yellow'}
+        />
       </View>
-      <AppText variant="caption" style={{ fontSize: 10, fontVariant: ['tabular-nums'] }}>
-        {config.kind === 'qualifying' ? 'Run' : 'Lap'} {currentLap}/{config.totalLaps}
-      </AppText>
-      <AppText numberOfLines={1} variant="caption" tone="muted" style={{ fontSize: 9 }}>
-        {config.weather} · {config.trackCondition} · {config.temperatureFahrenheit}°F
-      </AppText>
-      <StatusBadge
-        compact
-        label={config.cautionState}
-        tone={config.cautionState === 'Green' ? 'green' : 'yellow'}
-      />
+      <View style={{ alignItems: 'center', flexDirection: 'row', gap: 8 }}>
+        <AppText variant="caption" style={{ fontSize: 9 }}>
+          {config.sessionLabel}
+        </AppText>
+        <AppText
+          variant="caption"
+          style={{ fontFamily: theme.typography.mono, fontSize: 9 }}>
+          {config.kind === 'qualifying' ? 'RUN' : 'LAP'} {currentLap}/{config.totalLaps}
+        </AppText>
+        <AppText
+          numberOfLines={1}
+          variant="caption"
+          tone="muted"
+          style={{ flex: 1, fontSize: 8, textAlign: 'right' }}>
+          {config.weather} · {config.trackCondition} · {config.temperatureFahrenheit}°F
+        </AppText>
+      </View>
     </View>
   );
 }

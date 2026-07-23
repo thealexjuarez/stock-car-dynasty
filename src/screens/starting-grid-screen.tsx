@@ -7,6 +7,7 @@ import { AppRow } from '@/components/shared/app-row';
 import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { getNextRace } from '@/data/starter-game-state';
 import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
@@ -32,17 +33,24 @@ export function StartingGridScreen() {
   };
 
   return (
-    <Screen>
+    <Screen
+      compact
+      footer={
+        <AppButton label={raceWeekendCopy.grid.primaryAction} onPress={startRace} />
+      }>
       <View style={{ gap: theme.spacing.sm }}>
-        <AppText variant="eyebrow" tone="accent">Qualifying Complete · {track.type}</AppText>
-        <AppText variant="hero">Starting Grid</AppText>
+        <AppText variant="eyebrow" tone="accent">
+          {raceWeekendCopy.grid.eyebrow} · {track.type}
+        </AppText>
+        <AppText variant="hero">{raceWeekendCopy.grid.title}</AppText>
         <AppText tone="muted">{race.name} at {track.name}</AppText>
       </View>
 
-      <AppCard style={{ borderColor: theme.colors.caution }}>
-        <AppText variant="title">Apex Motorsports</AppText>
+      <AppCard style={{ borderColor: theme.colors.caution, padding: theme.spacing.md }}>
+        <AppText variant="title">{state.game.team.name}</AppText>
         {qualifying.entries.filter((entry) => entry.isPlayerTeam).map((entry) => (
           <AppRow
+            compact
             key={entry.id}
             label={`P${entry.position} · Car #${entry.carNumber}`}
             detail={entry.driverName}
@@ -50,10 +58,10 @@ export function StartingGridScreen() {
         ))}
       </AppCard>
 
-      <AppCard>
-        <AppText variant="title">Prototype Field</AppText>
+      <AppCard style={{ gap: theme.spacing.sm, padding: theme.spacing.md }}>
+        <AppText variant="title">{raceWeekendCopy.grid.fieldTitle}</AppText>
         <AppText tone="muted">
-          The current Bible-aligned 12-car presentation field is ordered by the seeded qualifying simulation.
+          {raceWeekendCopy.grid.fieldNote}
         </AppText>
         {qualifying.entries.map((entry) => (
           <View
@@ -70,7 +78,6 @@ export function StartingGridScreen() {
         ))}
       </AppCard>
 
-      <AppButton label="Start Race" onPress={startRace} />
     </Screen>
   );
 }

@@ -1,4 +1,5 @@
 import { raceWeekendTuning } from '@/data/race-weekend-config';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { getNextRace, starterGameState } from '@/data/starter-game-state';
 import type { GameState } from '@/types/game';
 import type { RaceWeekendState, WeekendEntrant } from '@/types/race-weekend';
@@ -135,7 +136,10 @@ export function getRacePresentationConfig(kind: RaceSessionKind): RacePresentati
 
   return {
     kind,
-    sessionLabel: kind === 'qualifying' ? 'Qualifying' : 'Live Race',
+    sessionLabel:
+      kind === 'qualifying'
+        ? raceWeekendCopy.qualifying.sessionLabel
+        : raceWeekendCopy.race.sessionLabel,
     totalLaps:
       kind === 'qualifying'
         ? racePresentationAssumptions.qualifyingLaps

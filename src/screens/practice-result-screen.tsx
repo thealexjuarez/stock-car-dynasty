@@ -7,6 +7,7 @@ import { AppRow } from '@/components/shared/app-row';
 import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
@@ -33,22 +34,34 @@ export function PracticeResultScreen() {
   };
 
   return (
-    <Screen>
+    <Screen
+      compact
+      footer={
+        <AppButton
+          label={raceWeekendCopy.practiceResult.primaryAction}
+          onPress={continueToQualifying}
+        />
+      }>
       <View style={{ gap: theme.spacing.sm }}>
-        <AppText variant="eyebrow" tone="accent">Practice Complete · {result.trackType}</AppText>
-        <AppText variant="hero">Practice Result</AppText>
+        <AppText variant="eyebrow" tone="accent">
+          {raceWeekendCopy.practiceResult.eyebrow} · {result.trackType}
+        </AppText>
+        <AppText variant="hero">{raceWeekendCopy.practiceResult.title}</AppText>
         <AppText tone="muted">{result.raceName} at {result.trackName}</AppText>
       </View>
 
-      <AppCard style={{ borderColor: theme.colors.caution }}>
-        <AppText variant="eyebrow" tone="accent">Selected Focus</AppText>
-        <AppText variant="title">{result.selectedChoice.name}</AppText>
-        <AppText tone="muted">{result.selectedChoice.description}</AppText>
+      <AppCard style={{ borderColor: theme.colors.caution, padding: theme.spacing.md }}>
+        <AppText variant="eyebrow" tone="accent">
+          {raceWeekendCopy.practiceResult.selectedPlan}
+        </AppText>
+        <AppText variant="title" style={{ fontSize: 19 }}>
+          {result.selectedChoice.name}
+        </AppText>
         <AppText variant="caption">{result.selectedChoice.effectSummary}</AppText>
       </AppCard>
 
       {result.entries.map((entry) => (
-        <AppCard key={entry.carNumber}>
+        <AppCard key={entry.carNumber} style={{ gap: theme.spacing.sm, padding: theme.spacing.md }}>
           <View
             style={{
               alignItems: 'flex-start',
@@ -62,18 +75,26 @@ export function PracticeResultScreen() {
             </View>
             <StatusBadge label={`${entry.setupConfidence} confidence`} tone="blue" />
           </View>
-          <AppRow label="Setup Confidence" detail={`${entry.setupConfidence} / 100`} />
+          <AppRow compact label="Setup Confidence" detail={`${entry.setupConfidence} / 100`} />
           <AppText>{entry.crewFeedback}</AppText>
           <View style={{ gap: theme.spacing.xs }}>
-            <AppText variant="eyebrow" tone="soft">Insight Learned</AppText>
+            <AppText variant="eyebrow" tone="soft">
+              {raceWeekendCopy.practiceResult.insight}
+            </AppText>
             <AppText tone="muted">{entry.insight}</AppText>
           </View>
-          <AppRow label="Qualifying" detail={entry.qualifyingEffect} />
-          <AppRow label="Race" detail={entry.raceEffect} />
+          <AppRow
+            compact
+            label={raceWeekendCopy.practiceResult.qualifying}
+            detail={entry.qualifyingEffect}
+          />
+          <AppRow
+            compact
+            label={raceWeekendCopy.practiceResult.race}
+            detail={entry.raceEffect}
+          />
         </AppCard>
       ))}
-
-      <AppButton label="Continue to Qualifying" onPress={continueToQualifying} />
     </Screen>
   );
 }

@@ -26,7 +26,8 @@ export function AppButton({
       disabled={disabled}
       style={({ pressed }) => [
         {
-          opacity: disabled ? 0.5 : pressed ? 0.78 : 1,
+          opacity: disabled ? 0.48 : pressed ? 0.82 : 1,
+          transform: [{ scale: pressed && !disabled ? 0.99 : 1 }],
         },
         style,
       ]}>
@@ -41,10 +42,19 @@ export function AppButton({
           justifyContent: 'center',
           minHeight: theme.buttons.minHeight,
           paddingHorizontal: theme.spacing.xl,
+          shadowColor: isPrimary ? theme.colors.trackRed : theme.colors.rubber,
+          shadowOffset: { height: 3, width: 0 },
+          shadowOpacity: isPrimary ? 0.24 : 0.12,
+          shadowRadius: 6,
         }}>
         <AppText
           variant="caption"
-          style={{ color: theme.colors.white, fontWeight: '900', textTransform: 'uppercase' }}>
+          style={{
+            color: theme.colors.white,
+            fontWeight: '900',
+            letterSpacing: 0.8,
+            textTransform: 'uppercase',
+          }}>
           {label}
         </AppText>
       </View>

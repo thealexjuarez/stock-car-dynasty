@@ -4,6 +4,7 @@ import { RacePresentationShell } from '@/components/race-presentation/race-prese
 import { AppButton } from '@/components/shared/app-button';
 import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { useGameSession } from '@/state/game-session';
 
 export function LiveRaceScreen() {
@@ -12,10 +13,10 @@ export function LiveRaceScreen() {
   if (!state.weekend.race) {
     return (
       <Screen>
-        <AppText variant="title">The race is not ready</AppText>
-        <AppText tone="muted">Set the starting grid before beginning the race.</AppText>
+        <AppText variant="title">{raceWeekendCopy.race.notReadyTitle}</AppText>
+        <AppText tone="muted">{raceWeekendCopy.race.notReadyBody}</AppText>
         <Link href="/race-preview" asChild>
-          <AppButton label="Return to Race Preview" />
+          <AppButton label={raceWeekendCopy.race.returnAction} />
         </Link>
       </Screen>
     );

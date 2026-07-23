@@ -1,6 +1,7 @@
 import { FlatList, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AppText } from '@/components/shared/app-text';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { theme } from '@/theme';
 import type { RunningOrderEntry } from '@/types/race-presentation';
 
@@ -11,7 +12,7 @@ type TimingTowerProps = {
 };
 
 export function TimingTower({ compact, runningOrder, style }: TimingTowerProps) {
-  const rowHeight = compact ? 27 : 31;
+  const rowHeight = compact ? 23 : 28;
 
   return (
     <View
@@ -30,9 +31,11 @@ export function TimingTower({ compact, runningOrder, style }: TimingTowerProps) 
         style={{
           backgroundColor: theme.colors.panelStrong,
           paddingHorizontal: 6,
-          paddingVertical: 4,
+          paddingVertical: 5,
         }}>
-        <AppText variant="eyebrow" tone="accent" style={{ fontSize: 9 }}>Timing Tower</AppText>
+        <AppText variant="eyebrow" tone="accent" style={{ fontSize: 8 }}>
+          {raceWeekendCopy.presentation.runningOrder}
+        </AppText>
       </View>
       <FlatList
         contentInsetAdjustmentBehavior="never"
@@ -51,24 +54,24 @@ export function TimingTower({ compact, runningOrder, style }: TimingTowerProps) 
               borderLeftColor: item.isPlayerTeam ? theme.colors.caution : 'transparent',
               borderLeftWidth: 3,
               flexDirection: 'row',
-              gap: compact ? 2 : 4,
+              gap: compact ? 1 : 4,
               height: rowHeight,
-              paddingHorizontal: compact ? 3 : 6,
+              paddingHorizontal: compact ? 2 : 6,
             }}>
             <AppText
               variant="caption"
-              style={{ fontSize: compact ? 9 : 10, fontVariant: ['tabular-nums'], textAlign: 'center', width: compact ? 16 : 20 }}>
+              style={{ fontFamily: theme.typography.mono, fontSize: compact ? 8 : 10, textAlign: 'center', width: compact ? 14 : 20 }}>
               {item.position}
             </AppText>
             <AppText
               variant="caption"
-              style={{ color: item.sprite.bodyColor, fontSize: compact ? 9 : 10, fontVariant: ['tabular-nums'], width: compact ? 23 : 28 }}>
+              style={{ color: item.sprite.bodyColor, fontFamily: theme.typography.mono, fontSize: compact ? 8 : 10, width: compact ? 21 : 28 }}>
               #{item.carNumber}
             </AppText>
             <AppText
               numberOfLines={1}
               variant="caption"
-              style={{ flex: 1, fontSize: compact ? 8 : 10 }}>
+              style={{ flex: 1, fontSize: compact ? 7 : 10 }}>
               {compact ? item.driverName.split(' ').at(-1) : item.driverName}
             </AppText>
             <View
@@ -83,7 +86,7 @@ export function TimingTower({ compact, runningOrder, style }: TimingTowerProps) 
             <AppText
               variant="caption"
               tone="soft"
-              style={{ fontSize: compact ? 8 : 9, fontVariant: ['tabular-nums'], textAlign: 'right', width: compact ? 28 : 38 }}>
+              style={{ fontFamily: theme.typography.mono, fontSize: compact ? 7 : 9, textAlign: 'right', width: compact ? 25 : 38 }}>
               {item.interval}
             </AppText>
           </View>

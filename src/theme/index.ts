@@ -48,14 +48,14 @@ export const typography = {
     eyebrow: 11,
     caption: 12,
     body: 15,
-    title: 24,
-    hero: 38,
+    title: 22,
+    hero: 34,
   },
   lineHeights: {
     caption: 16,
     body: 22,
-    title: 30,
-    hero: 42,
+    title: 27,
+    hero: 38,
   },
 } as const;
 

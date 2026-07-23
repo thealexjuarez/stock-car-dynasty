@@ -11,6 +11,7 @@ import { Screen } from '@/components/shared/screen';
 import { SectionHeader } from '@/components/shared/section-header';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { getPracticeChoice, practiceChoices } from '@/data/practice-config';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { getNextRace } from '@/data/starter-game-state';
 import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
@@ -46,17 +47,54 @@ export function PracticeScreen() {
     router.push('/practice-result');
   };
 
+  const footer = isConfirming && selectedChoice ? (
+    <>
+      <View style={{ gap: 2 }}>
+        <AppText variant="eyebrow" tone="accent">
+          {raceWeekendCopy.practice.confirmTitle}
+        </AppText>
+        <AppText numberOfLines={1} variant="caption" tone="muted">
+          {selectedChoice.name} · {raceWeekendCopy.practice.confirmBody}
+        </AppText>
+      </View>
+      <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+        <AppButton
+          label={raceWeekendCopy.practice.changeAction}
+          onPress={() => setIsConfirming(false)}
+          style={{ flex: 1 }}
+          variant="secondary"
+        />
+        <AppButton
+          label={raceWeekendCopy.practice.runAction}
+          onPress={resolveSession}
+          style={{ flex: 1.35 }}
+        />
+      </View>
+    </>
+  ) : (
+    <AppButton
+      disabled={!selectedChoiceId}
+      label={
+        selectedChoiceId
+          ? raceWeekendCopy.practice.reviewAction
+          : raceWeekendCopy.practice.selectAction
+      }
+      onPress={() => setIsConfirming(true)}
+    />
+  );
+
   return (
-    <Screen>
+    <Screen compact footer={footer}>
       <View style={{ gap: theme.spacing.sm }}>
         <AppText variant="eyebrow" tone="accent">
-          Race {race.round} of {state.game.calendar.length} · Practice
+          {raceWeekendCopy.practice.eyebrow} · Race {race.round} of{' '}
+          {state.game.calendar.length}
         </AppText>
-        <AppText variant="hero">{track.name}</AppText>
+        <AppText variant="hero">{raceWeekendCopy.practice.title}</AppText>
         <AppText tone="muted">{race.name}</AppText>
       </View>
 
-      <AppCard style={{ borderColor: theme.colors.trackRed }}>
+      <AppCard style={{ borderColor: theme.colors.trackRed, padding: theme.spacing.md }}>
         <View
           style={{
             flexDirection: 'row',
@@ -64,23 +102,26 @@ export function PracticeScreen() {
             gap: theme.spacing.md,
             justifyContent: 'space-between',
           }}>
-          <AppText variant="title">Weekend Setup</AppText>
+          <AppText variant="title">{track.name}</AppText>
           <StatusBadge label={track.type} tone="red" />
         </View>
         <AppText tone="muted">
-          Choose one focus for both Apex Motorsports entries. The decision locks when practice
-          resolves.
+          One plan applies to both cars and carries through qualifying and the race.
         </AppText>
       </AppCard>
 
-      <AppCard>
-        <SectionHeader title="Apex Motorsports Entries" subtitle="Both cars receive the same practice focus" />
+      <AppCard style={{ padding: theme.spacing.md }}>
+        <SectionHeader
+          title={state.game.team.name}
+          subtitle="Both entries work from the same plan."
+        />
         {state.game.vehicles.map((vehicle) => {
           const driver = state.game.drivers.find(
             (item) => item.id === vehicle.assignedDriverId,
           );
           return (
             <AppRow
+              compact
               key={vehicle.id}
               label={`Car #${vehicle.number}`}
               detail={driver?.name ?? 'Driver unavailable'}
@@ -91,8 +132,8 @@ export function PracticeScreen() {
 
       <View accessibilityRole="radiogroup" style={{ gap: theme.spacing.md }}>
         <SectionHeader
-          title="Select Practice Focus"
-          subtitle="One choice applies to the entire weekend"
+          title={raceWeekendCopy.practice.selectionTitle}
+          subtitle={raceWeekendCopy.practice.selectionSubtitle}
         />
         {practiceChoices.map((choice) => (
           <PracticeChoiceCard
@@ -104,27 +145,6 @@ export function PracticeScreen() {
         ))}
       </View>
 
-      {isConfirming && selectedChoice ? (
-        <AppCard style={{ borderColor: theme.colors.caution }}>
-          <AppText variant="eyebrow" tone="accent">Confirm Weekend Focus</AppText>
-          <AppText variant="title">{selectedChoice.name}</AppText>
-          <AppText tone="muted">
-            Resolve practice with this focus? It cannot be changed after the result is generated.
-          </AppText>
-          <AppButton label="Resolve Practice" onPress={resolveSession} />
-          <AppButton
-            label="Change Selection"
-            variant="secondary"
-            onPress={() => setIsConfirming(false)}
-          />
-        </AppCard>
-      ) : (
-        <AppButton
-          disabled={!selectedChoiceId}
-          label={selectedChoiceId ? 'Review Practice Plan' : 'Select a Practice Focus'}
-          onPress={() => setIsConfirming(true)}
-        />
-      )}
     </Screen>
   );
 }

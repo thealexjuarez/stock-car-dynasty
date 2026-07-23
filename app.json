@@ -3,7 +3,7 @@
     "name": "stock-car-dynasty",
     "slug": "stock-car-dynasty",
     "version": "1.0.0",
-    "orientation": "default",
+    "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "stockcardynasty",
     "userInterfaceStyle": "automatic",

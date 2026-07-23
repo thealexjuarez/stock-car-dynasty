@@ -2,7 +2,7 @@
 
 ## Scope
 
-The Qualifying and Live Race screens share a fixed elevated side-follow 2.5D scene. The application shell is a safe-area-aware landscape grid with a compact top strip, internally scrolling timing tower, center viewport, two stacked driver cards, and fixed bottom controls. The route itself does not scroll. This layer is presentation-only: it does not decide final qualifying results, race results, incidents, pit outcomes, tire balance, fuel balance, or caution behavior.
+The Qualifying and Live Race screens share a fixed elevated side-follow 2.5D scene. The application shell is a safe-area-aware portrait layout with an internally scrolling timing tower to the left of the track viewport, followed by race status, player-driver cards, strategy controls, and fixed session controls below. The route itself does not scroll. This layer is presentation-only: it does not decide final qualifying results, race results, incidents, pit outcomes, tire balance, fuel balance, or caution behavior.
 
 ## Prototype assumptions
 

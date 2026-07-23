@@ -4,6 +4,7 @@ import { RacePresentationShell } from '@/components/race-presentation/race-prese
 import { AppButton } from '@/components/shared/app-button';
 import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { useGameSession } from '@/state/game-session';
 
 export function QualifyingScreen() {
@@ -12,10 +13,10 @@ export function QualifyingScreen() {
   if (!state.weekend.qualifying) {
     return (
       <Screen>
-        <AppText variant="title">Qualifying is not ready</AppText>
-        <AppText tone="muted">Complete practice before beginning qualifying.</AppText>
+        <AppText variant="title">{raceWeekendCopy.qualifying.notReadyTitle}</AppText>
+        <AppText tone="muted">{raceWeekendCopy.qualifying.notReadyBody}</AppText>
         <Link href="/practice" asChild>
-          <AppButton label="Go to Practice" />
+          <AppButton label={raceWeekendCopy.qualifying.returnAction} />
         </Link>
       </Screen>
     );

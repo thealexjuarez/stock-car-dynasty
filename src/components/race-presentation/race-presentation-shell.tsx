@@ -8,9 +8,10 @@ import { SessionControlBar } from '@/components/race-presentation/session-contro
 import { SessionStatusStrip } from '@/components/race-presentation/session-status-strip';
 import { TimingTower } from '@/components/race-presentation/timing-tower';
 import { getRacePresentationContext } from '@/data/race-presentation-data';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { useRacePresentation } from '@/hooks/use-race-presentation';
-import { theme } from '@/theme';
 import { useGameSession } from '@/state/game-session';
+import { theme } from '@/theme';
 import type { RacePresentationEntrant, RaceSessionKind } from '@/types/race-presentation';
 
 type RacePresentationShellProps = {
@@ -21,10 +22,10 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
   const router = useRouter();
   const { state, showGrid, showResults } = useGameSession();
   const { height, width } = useWindowDimensions();
-  const compact = height < 500 || width < 900;
-  const timingWidth = Math.max(132, Math.min(160, width * 0.18));
-  const driverWidth = Math.max(188, Math.min(218, width * 0.25));
-  const framePadding = height < 430 ? 6 : 8;
+  const compact = width < 430 || height < 760;
+  const timingWidth = Math.max(104, Math.min(122, width * 0.31));
+  const trackHeight = Math.max(210, Math.min(270, height * 0.34));
+  const framePadding = compact ? 6 : 8;
   const { track } = getRacePresentationContext(state.game);
   const {
     config,
@@ -56,24 +57,26 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
 
   const getDriverState = (entry: RacePresentationEntrant) => {
     if (kind === 'race') {
-      return isPaused ? 'Paused' : 'Running';
+      return isPaused ? raceWeekendCopy.presentation.pause : raceWeekendCopy.presentation.greenFlagRun;
     }
 
     if (model.isComplete) {
-      return 'Run Complete';
+      return raceWeekendCopy.presentation.runComplete;
     }
 
     if (!model.activeQualifyingEntryId) {
-      return 'Provisional Result';
+      return raceWeekendCopy.presentation.provisional;
     }
 
     const driverIndex = playerEntries.findIndex((playerEntry) => playerEntry.id === entry.id);
 
     if (entry.id === model.activeQualifyingEntryId) {
-      return 'On Track';
+      return raceWeekendCopy.presentation.onTrack;
     }
 
-    return driverIndex < activeRunIndex ? 'Run Complete' : 'Up Next';
+    return driverIndex < activeRunIndex
+      ? raceWeekendCopy.presentation.runComplete
+      : raceWeekendCopy.presentation.nextOut;
   };
 
   const resultSummary = playerEntries
@@ -87,20 +90,20 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
   );
   const statusMessage =
     kind === 'race'
-      ? `${model.ovalPhase} · presentation controls only`
+      ? `${model.ovalPhase} · ${raceWeekendCopy.presentation.greenFlagRun}`
       : model.isComplete
-        ? `Provisional result · ${resultSummary}`
+        ? `${raceWeekendCopy.presentation.provisional} · ${resultSummary}`
         : activeEntry
-          ? `#${activeEntry.carNumber} on track · ${model.ovalPhase}`
-          : `Compiling provisional result · ${resultSummary}`;
+          ? `#${activeEntry.carNumber} ${raceWeekendCopy.presentation.onTrack} · ${model.ovalPhase}`
+          : `${raceWeekendCopy.presentation.provisional} · ${resultSummary}`;
   const progressLabel =
     kind === 'race'
       ? `Lap ${model.currentLap}/${config.totalLaps}`
       : model.isComplete
-        ? 'Qualifying complete'
+        ? raceWeekendCopy.presentation.qualifyingComplete
         : model.qualifyingRunNumber
           ? `Run ${model.qualifyingRunNumber}/${config.totalLaps}`
-          : 'Provisional result';
+          : raceWeekendCopy.presentation.provisional;
 
   return (
     <SafeAreaView
@@ -115,24 +118,17 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
           paddingHorizontal: framePadding,
           paddingTop: framePadding,
         }}>
-        <SessionStatusStrip
-          config={config}
-          currentLap={model.currentLap}
-          trackName={track.name}
-        />
-
         <View
           style={{
             alignItems: 'stretch',
-            flex: 1,
             flexDirection: 'row',
             gap: 6,
-            minHeight: 0,
+            height: trackHeight,
           }}>
           <TimingTower
             compact={compact}
             runningOrder={model.runningOrder}
-            style={{ height: '100%', width: timingWidth }}
+            style={{ width: timingWidth }}
           />
           <RaceScene
             cars={model.visibleCars}
@@ -143,28 +139,30 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
             playbackSpeed={playbackSpeed}
             style={{ flex: 1 }}
           />
-          <View
-            style={{
-              gap: 6,
-              justifyContent: 'space-between',
-              minHeight: 0,
-              width: driverWidth,
-            }}>
-            {playerEntries.map((entry) => {
-              const driverId = entry.playerDriverId!;
-              const runningEntry = model.runningOrder.find((item) => item.id === entry.id);
+        </View>
 
-              if (!runningEntry) {
-                throw new Error(`Missing running-order entry for Car #${entry.carNumber}`);
-              }
+        <SessionStatusStrip
+          config={config}
+          currentLap={model.currentLap}
+          trackName={track.name}
+        />
 
-              return (
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {playerEntries.map((entry) => {
+            const driverId = entry.playerDriverId!;
+            const runningEntry = model.runningOrder.find((item) => item.id === entry.id);
+
+            if (!runningEntry) {
+              throw new Error(`Missing running-order entry for Car #${entry.carNumber}`);
+            }
+
+            return (
+              <View key={entry.id} style={{ flex: 1, minWidth: 0 }}>
                 <DriverSessionCard
                   activeCamera={driverId === focusedDriverId}
-                  compact={compact}
+                  compact
                   currentLap={model.currentLap}
                   entry={entry}
-                  key={entry.id}
                   onSelectCamera={() => setFocusedDriverId(driverId)}
                   onSelectMode={(mode) => setPaceMode(driverId, mode)}
                   runningEntry={runningEntry}
@@ -173,9 +171,9 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
                   showPaceControls={kind === 'race'}
                   totalLaps={config.totalLaps}
                 />
-              );
-            })}
-          </View>
+              </View>
+            );
+          })}
         </View>
 
         <SessionControlBar

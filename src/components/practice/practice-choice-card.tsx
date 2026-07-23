@@ -23,6 +23,8 @@ export function PracticeChoiceCard({ choice, selected, onSelect }: PracticeChoic
         style={{
           backgroundColor: selected ? theme.colors.panelStrong : theme.colors.garage,
           borderColor: selected ? theme.colors.caution : theme.colors.border,
+          gap: theme.spacing.sm,
+          padding: theme.spacing.md,
         }}>
         <View
           style={{
@@ -32,15 +34,19 @@ export function PracticeChoiceCard({ choice, selected, onSelect }: PracticeChoic
             justifyContent: 'space-between',
           }}>
           <View style={{ flex: 1, gap: theme.spacing.xs }}>
-            <AppText variant="title">{choice.name}</AppText>
+            <AppText variant="title" style={{ fontSize: 18, lineHeight: 22 }}>
+              {choice.name}
+            </AppText>
             <AppText variant="caption" tone="accent">
               {choice.intent}
             </AppText>
           </View>
           {selected ? <StatusBadge label="Selected" tone="yellow" /> : null}
         </View>
-        <AppText tone="muted">{choice.description}</AppText>
-        <AppText variant="caption">{choice.effectSummary}</AppText>
+        <AppText tone="muted" variant="caption">{choice.description}</AppText>
+        <AppText variant="caption" style={{ fontFamily: theme.typography.mono }}>
+          {choice.effectSummary}
+        </AppText>
       </AppCard>
     </Pressable>
   );

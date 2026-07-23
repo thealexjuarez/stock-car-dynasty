@@ -1,8 +1,12 @@
 /// <reference types="node" />
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+import { tabs } from '@/data/app-shell';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
+import { postSettlementFlow } from '@/data/race-weekend-navigation';
 import {
   createInitialGameSessionState,
   gameSessionReducer,
@@ -58,7 +62,7 @@ test('the reducer enforces the complete weekend phase order', () => {
   assert.equal(completed.weekend.raceId, 'race-1');
 });
 
-test('advancing applies settlement once and activates the next event', () => {
+test('settlement posts once and leaves the next weekend ready at Home', () => {
   const completed = runCompletedWeekend();
   const race = completed.weekend.race!;
   const cashBefore = completed.game.team.cash;
@@ -72,7 +76,14 @@ test('advancing applies settlement once and activates the next event', () => {
   assert.equal(advanced.game.week, 2);
   assert.equal(advanced.weekend.raceId, 'race-2');
   assert.equal(advanced.weekend.phase, 'preview');
+  assert.equal(advanced.weekend.practice, undefined);
+  assert.equal(advanced.weekend.qualifying, undefined);
+  assert.equal(advanced.weekend.race, undefined);
   assert.equal(advanced.game.team.cash, cashBefore + race.playerPayout);
+  assert.equal(postSettlementFlow.route, '/home');
+  assert.equal(postSettlementFlow.tab, 'home');
+  assert.equal(postSettlementFlow.nextWeekendStartsAutomatically, false);
+  assert.ok(tabs.some((tab) => tab.key === postSettlementFlow.tab));
 
   for (const entry of race.entries.filter((item) => item.isPlayerTeam)) {
     assert.equal(
@@ -89,4 +100,33 @@ test('advancing applies settlement once and activates the next event', () => {
     () => gameSessionReducer(advanced, { type: 'ADVANCE_EVENT' }),
     /Results must be reviewed/,
   );
+});
+
+test('the app is locked to portrait for phone race weekends', () => {
+  const appConfig = JSON.parse(readFileSync('app.json', 'utf8')) as {
+    expo: { orientation?: string };
+  };
+
+  assert.equal(appConfig.expo.orientation, 'portrait');
+});
+
+test('race-weekend progression uses the revised player-facing labels', () => {
+  assert.equal(raceWeekendCopy.practice.runAction, 'Run Practice');
+  assert.equal(raceWeekendCopy.practiceResult.primaryAction, 'Send Them Out');
+  assert.equal(raceWeekendCopy.qualifying.gridAction, 'Set the Grid');
+  assert.equal(raceWeekendCopy.grid.primaryAction, 'Go Racing');
+  assert.equal(raceWeekendCopy.race.resultsAction, 'Official Results');
+  assert.equal(raceWeekendCopy.results.primaryAction, 'Return to the Shop');
+
+  const allCopy = JSON.stringify(raceWeekendCopy);
+  for (const retiredLabel of [
+    'Resolve Practice',
+    'Begin Practice',
+    'Start Race',
+    'View Results',
+    'Apply Results & Advance',
+    'Simulation Complete',
+  ]) {
+    assert.equal(allCopy.includes(retiredLabel), false);
+  }
 });

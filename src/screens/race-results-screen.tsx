@@ -1,4 +1,5 @@
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
+import { useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { AppButton } from '@/components/shared/app-button';
@@ -7,6 +8,8 @@ import { AppRow } from '@/components/shared/app-row';
 import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
+import { postSettlementFlow } from '@/data/race-weekend-navigation';
 import { getNextRace } from '@/data/starter-game-state';
 import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
@@ -22,6 +25,8 @@ export function RaceResultsScreen() {
   const { state, advanceEvent } = useGameSession();
   const { race, track } = getNextRace(state.game);
   const result = state.weekend.race;
+  const isClosingRef = useRef(false);
+  const [isClosing, setIsClosing] = useState(false);
 
   if (!race || !track || !result) {
     return (
@@ -33,21 +38,43 @@ export function RaceResultsScreen() {
   }
 
   const advance = () => {
+    if (isClosingRef.current) {
+      return;
+    }
+
+    isClosingRef.current = true;
+    setIsClosing(true);
     advanceEvent();
     router.dismissAll();
-    router.replace('/race-preview');
+    router.replace(postSettlementFlow.route as Href);
   };
 
   return (
-    <Screen>
+    <Screen
+      compact
+      footer={
+        <AppButton
+          disabled={isClosing}
+          label={
+            isClosing
+              ? raceWeekendCopy.results.returningAction
+              : raceWeekendCopy.results.primaryAction
+          }
+          onPress={advance}
+        />
+      }>
       <View style={{ gap: theme.spacing.sm }}>
-        <AppText variant="eyebrow" tone="accent">Race Complete · {track.type}</AppText>
-        <AppText variant="hero">Race Results</AppText>
+        <AppText variant="eyebrow" tone="accent">
+          {raceWeekendCopy.results.eyebrow} · {track.type}
+        </AppText>
+        <AppText variant="hero">{raceWeekendCopy.results.title}</AppText>
         <AppText tone="muted">{race.name} at {track.name}</AppText>
       </View>
 
       {result.entries.filter((entry) => entry.isPlayerTeam).map((entry) => (
-        <AppCard key={entry.id} style={{ borderColor: theme.colors.caution }}>
+        <AppCard
+          key={entry.id}
+          style={{ borderColor: theme.colors.caution, gap: theme.spacing.sm, padding: theme.spacing.md }}>
           <View style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }}>
             <View>
               <AppText variant="title">P{entry.finishPosition} · Car #{entry.carNumber}</AppText>
@@ -55,26 +82,43 @@ export function RaceResultsScreen() {
             </View>
             <StatusBadge label={entry.status} tone={entry.status === 'DNF' ? 'red' : 'green'} />
           </View>
-          <AppRow label="Payout" detail={money.format(entry.payout)} />
-          <AppRow label="Driver EXP" detail={`+${entry.exp}`} />
-          <AppRow label="Condition" detail={`-${entry.conditionLoss}%`} />
+          <AppRow
+            compact
+            label={raceWeekendCopy.results.payout}
+            detail={money.format(entry.payout)}
+          />
+          <AppRow compact label={raceWeekendCopy.results.exp} detail={`+${entry.exp}`} />
+          <AppRow
+            compact
+            label={raceWeekendCopy.results.damage}
+            detail={`-${entry.conditionLoss}%`}
+          />
         </AppCard>
       ))}
 
-      <AppCard>
-        <AppText variant="title">Weekend Settlement</AppText>
-        <AppRow label="Team payout" detail={money.format(result.playerPayout)} />
-        <AppRow label="Driver EXP" detail={`+${result.playerExp}`} />
-        <AppRow label="Total condition loss" detail={`-${result.playerConditionLoss}%`} />
+      <AppCard style={{ padding: theme.spacing.md }}>
+        <AppText variant="title">{raceWeekendCopy.results.closeoutTitle}</AppText>
+        <AppRow
+          compact
+          label={raceWeekendCopy.results.payout}
+          detail={money.format(result.playerPayout)}
+        />
+        <AppRow compact label={raceWeekendCopy.results.exp} detail={`+${result.playerExp}`} />
+        <AppRow
+          compact
+          label={raceWeekendCopy.results.damage}
+          detail={`-${result.playerConditionLoss}%`}
+        />
         <AppText tone="muted">
-          These changes apply once when you advance. The next event then becomes the active weekend.
+          {raceWeekendCopy.results.settlementNote}
         </AppText>
       </AppCard>
 
-      <AppCard>
-        <AppText variant="title">Finishing Order</AppText>
+      <AppCard style={{ gap: theme.spacing.sm, padding: theme.spacing.md }}>
+        <AppText variant="title">{raceWeekendCopy.results.finishingOrder}</AppText>
         {result.entries.map((entry) => (
           <AppRow
+            compact
             key={entry.id}
             label={`P${entry.finishPosition} · #${entry.carNumber}`}
             detail={`${entry.driverName}${entry.status === 'DNF' ? ' · DNF' : ''}`}
@@ -82,7 +126,6 @@ export function RaceResultsScreen() {
         ))}
       </AppCard>
 
-      <AppButton label="Apply Results & Advance" onPress={advance} />
     </Screen>
   );
 }
