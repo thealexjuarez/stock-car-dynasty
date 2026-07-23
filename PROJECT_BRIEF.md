@@ -15,6 +15,13 @@
 - UI must be card-based, readable, and easy to navigate.
 - Every screen should answer: what is happening, why does it matter, what can the player do next?
 
+## Manufacturer Canon
+
+- Canonical manufacturers: Fard (`fard`), Chevrolat (`chevrolat`), and Toyoda (`toyoda`).
+- Apex Motorsports starts with Chevrolat.
+- Manufacturer data is descriptive only in the current vertical slice.
+- Bonuses, contracts, exclusivity, body styles, and performance effects are not implemented yet.
+
 ## Next Build Order
 
 1. PROJECT_BRIEF.md

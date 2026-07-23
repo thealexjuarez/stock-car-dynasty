@@ -4,11 +4,12 @@ import { AppText } from '@/components/shared/app-text';
 import { theme } from '@/theme';
 
 type AppRowProps = {
+  compact?: boolean;
   label: string;
   detail?: string;
 };
 
-export function AppRow({ label, detail }: AppRowProps) {
+export function AppRow({ compact = false, label, detail }: AppRowProps) {
   return (
     <View
       style={{
@@ -18,8 +19,8 @@ export function AppRow({ label, detail }: AppRowProps) {
         flexDirection: 'row',
         gap: theme.spacing.md,
         justifyContent: 'space-between',
-        minHeight: 44,
-        paddingTop: theme.spacing.md,
+        minHeight: compact ? 36 : 44,
+        paddingTop: compact ? theme.spacing.sm : theme.spacing.md,
       }}>
       <AppText>{label}</AppText>
       {detail ? (

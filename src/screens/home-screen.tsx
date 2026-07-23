@@ -8,11 +8,12 @@ import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
 import { SectionHeader } from '@/components/shared/section-header';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import {
   getNextRace,
   getTeamManufacturer,
-  starterGameState as state,
 } from '@/data/starter-game-state';
+import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
 const money = new Intl.NumberFormat('en-US', {
@@ -22,8 +23,10 @@ const money = new Intl.NumberFormat('en-US', {
 });
 
 export function HomeScreen() {
-  const { track } = getNextRace();
-  const manufacturer = getTeamManufacturer();
+  const { state: session } = useGameSession();
+  const state = session.game;
+  const { race, track } = getNextRace(state);
+  const manufacturer = getTeamManufacturer(state);
 
   return (
     <Screen>
@@ -32,7 +35,7 @@ export function HomeScreen() {
         <AppText variant="hero">{state.team.name}</AppText>
         <AppText tone="muted">
           Season {state.season}, Week {state.week} · {state.series} ·{' '}
-          {manufacturer?.name ?? 'Manufacturer not selected'}
+          {manufacturer.displayName}
         </AppText>
       </View>
 
@@ -46,16 +49,22 @@ export function HomeScreen() {
       <AppCard style={{ borderColor: theme.colors.trackRed, backgroundColor: theme.colors.panelStrong }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md }}>
           <View style={{ flex: 1, gap: theme.spacing.xs }}>
-            <AppText variant="eyebrow" tone="accent">Next Recommended Action</AppText>
-            <AppText variant="title">{track?.name} Race Preview</AppText>
+            <AppText variant="eyebrow" tone="accent">
+              {raceWeekendCopy.home.nextAction}
+            </AppText>
+            <AppText variant="title">
+              {track?.name} {raceWeekendCopy.home.weekendBriefing}
+            </AppText>
           </View>
-          <StatusBadge label="Race 1 of 10" tone="red" />
+          <StatusBadge label={`Race ${race?.round ?? '—'} of ${state.calendar.length}`} tone="red" />
         </View>
         <AppText tone="muted">
-          The ERCA season opens at {track?.name}, a {track?.type.toLowerCase()} where awareness,
-          racecraft, and disciplined drafting matter.
+          The next ERCA weekend is at {track?.name}, a {track?.type.toLowerCase()} where the
+          track-specific driver ratings and car preparation will shape the result.
         </AppText>
-        <Link href="/race-preview" asChild><AppButton label="Review Race Preview" /></Link>
+        <Link href="/race-preview" asChild>
+          <AppButton label={raceWeekendCopy.home.openWeekend} />
+        </Link>
       </AppCard>
 
       <SectionHeader title="Drivers" subtitle="Active lineup and development outlook" />

@@ -16,7 +16,7 @@ export const tabs: TabDefinition[] = [
   {
     key: 'market',
     title: 'Market',
-    purpose: 'Recruiting, sponsors, staff market, and manufacturer',
+    purpose: 'Recruiting, sponsors, staff market, and manufacturer programs',
     icon: { ios: 'chart.line.uptrend.xyaxis', android: 'storefront', web: 'chart.line.uptrend.xyaxis' },
   },
   {
@@ -73,7 +73,7 @@ export const placeholderSections: Record<string, PlaceholderSection[]> = {
       title: 'Partners',
       badge: 'Fit',
       badgeTone: 'blue',
-      rows: ['Manufacturer alignment', 'Program identity', 'Long-term offers'],
+      rows: ['Manufacturer programs', 'Program identity', 'Long-term offers'],
     },
   ],
   race: [

@@ -15,9 +15,10 @@ const toneColors: Record<BadgeTone, string> = {
 type StatusBadgeProps = {
   label: string;
   tone?: BadgeTone;
+  compact?: boolean;
 };
 
-export function StatusBadge({ label, tone = 'neutral' }: StatusBadgeProps) {
+export function StatusBadge({ compact = false, label, tone = 'neutral' }: StatusBadgeProps) {
   return (
     <View
       style={{
@@ -25,14 +26,16 @@ export function StatusBadge({ label, tone = 'neutral' }: StatusBadgeProps) {
         alignSelf: 'flex-start',
         backgroundColor: toneColors[tone],
         borderRadius: theme.badges.radius,
-        minHeight: theme.badges.height,
+        minHeight: compact ? 18 : theme.badges.height,
         justifyContent: 'center',
-        paddingHorizontal: theme.spacing.md,
+        paddingHorizontal: compact ? 6 : theme.spacing.md,
       }}>
       <AppText
         variant="caption"
         style={{
           color: tone === 'yellow' ? theme.colors.rubber : theme.colors.white,
+          fontSize: compact ? 8 : theme.typography.sizes.caption,
+          lineHeight: compact ? 10 : theme.typography.lineHeights.caption,
           fontWeight: '900',
         }}>
         {label}
