@@ -30,6 +30,7 @@ export function HomeScreen() {
   const { race, track } = getNextRace(state);
   const manufacturer = getTeamManufacturer(state);
   const readinessBlockers = getRaceReadinessBlockers(state);
+  const lastSettlement = state.economy.settlementHistory.at(-1);
   const repairCandidates = state.vehicles.filter(
     (vehicle) => vehicle.active && vehicle.damage > 0,
   ).sort((left, right) => left.condition - right.condition);
@@ -51,6 +52,34 @@ export function HomeScreen() {
         <Hud label="Brand Power" value={`${state.team.brandPower}`} />
         <Hud label="Date" value={state.currentDate} />
       </View>
+
+      {lastSettlement && lastSettlement.operatingCostShortfall > 0 ? (
+        <AppCard
+          style={{
+            borderColor: theme.colors.trackRed,
+            backgroundColor: theme.colors.panelStrong,
+          }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: theme.spacing.md,
+            }}>
+            <View style={{ flex: 1, gap: theme.spacing.xs }}>
+              <AppText variant="eyebrow" tone="accent">
+                Weekend Books
+              </AppText>
+              <AppText variant="title">Operating Cost Shortfall</AppText>
+            </View>
+            <StatusBadge label="Cash Hold" tone="red" />
+          </View>
+          <AppText tone="muted">
+            The last weekend closed {money.format(lastSettlement.operatingCostShortfall)} short.
+            Team cash remains valid at {money.format(state.team.cash)} while the
+            financial issue awaits a future resolution system.
+          </AppText>
+        </AppCard>
+      ) : null}
 
       {repairCandidates.length > 0 ? (
         <AppCard

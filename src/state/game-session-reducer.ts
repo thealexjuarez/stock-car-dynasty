@@ -12,6 +12,7 @@ import {
   applyVehicleRepair,
   getRaceReadinessBlockers,
 } from '@/simulation/vehicle-repair';
+import { normalizeGameState } from '@/state/game-state-migration';
 import type { GameState } from '@/types/game';
 import type {
   GameSessionAction,
@@ -28,6 +29,10 @@ function cloneGameState(state: GameState): GameState {
       archetypes: [...driver.archetypes],
       stats: { ...driver.stats },
       growthModifiers: [...driver.growthModifiers],
+      sponsorLeads: driver.sponsorLeads.map((lead) => ({
+        ...lead,
+        projectedRaceBacking: { ...lead.projectedRaceBacking },
+      })),
     })),
     vehicles: state.vehicles.map((vehicle) => ({ ...vehicle })),
     staff: state.staff.map((staff) => ({ ...staff })),
@@ -39,6 +44,16 @@ function cloneGameState(state: GameState): GameState {
     facilities: state.facilities.map((facility) => ({ ...facility })),
     tracks: state.tracks.map((track) => ({ ...track, keyStats: [...track.keyStats] })),
     calendar: state.calendar.map((event) => ({ ...event })),
+    economy: {
+      processedTransactionIds: [...state.economy.processedTransactionIds],
+      repairTransactions: state.economy.repairTransactions.map(
+        (transaction) => ({ ...transaction }),
+      ),
+      settlementHistory: state.economy.settlementHistory.map((settlement) => ({
+        ...settlement,
+        winningsByCar: settlement.winningsByCar.map((line) => ({ ...line })),
+      })),
+    },
   };
 }
 
@@ -55,8 +70,8 @@ function createWeekend(state: GameState): RaceWeekendState {
 export function createInitialGameSessionState(
   gameState: GameState = starterGameState,
 ): GameSessionState {
-  const game = cloneGameState(gameState);
-  return { game, weekend: createWeekend(game), processedRepairActionIds: [] };
+  const game = cloneGameState(normalizeGameState(gameState));
+  return { game, weekend: createWeekend(game) };
 }
 
 export function gameSessionReducer(
@@ -125,6 +140,9 @@ export function gameSessionReducer(
       if (!state.weekend.race) throw new Error('The race must be completed first');
       return { ...state, weekend: { ...state.weekend, phase: 'results' } };
     case 'ADVANCE_EVENT': {
+      if (state.game.economy.processedTransactionIds.includes(action.actionId)) {
+        return state;
+      }
       if (!state.weekend.race || state.weekend.phase !== 'results') {
         throw new Error('Results must be reviewed before advancing');
       }
@@ -132,21 +150,13 @@ export function gameSessionReducer(
       return { ...state, game, weekend: createWeekend(game) };
     }
     case 'REPAIR_VEHICLE': {
-      if (state.processedRepairActionIds.includes(action.actionId)) {
-        return state;
-      }
       const game = applyVehicleRepair(state.game, {
+        actionId: action.actionId,
+        raceId: state.weekend.raceId,
         vehicleId: action.vehicleId,
         optionId: action.optionId,
       });
-      return {
-        ...state,
-        game,
-        processedRepairActionIds: [
-          ...state.processedRepairActionIds,
-          action.actionId,
-        ],
-      };
+      return game === state.game ? state : { ...state, game };
     }
   }
 }

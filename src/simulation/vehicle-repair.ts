@@ -1,5 +1,6 @@
 import {
-  getRepairOption,
+  getDamageClassification,
+  getRepairQuote,
   PROVISIONAL_READY_THRESHOLD,
   RACE_READY_THRESHOLD,
 } from '@/data/repair-config';
@@ -11,6 +12,8 @@ import type {
 } from '@/types/game';
 
 export type RepairCommand = {
+  actionId: string;
+  raceId: string;
   vehicleId: string;
   optionId: RepairOptionId;
 };
@@ -54,6 +57,7 @@ export function updateVehicleCondition(
     ...vehicle,
     condition: nextCondition,
     damage: 100 - nextCondition,
+    damageClass: getDamageClassification(100 - nextCondition),
     readiness: getVehicleReadiness(nextCondition),
     chassisWear: getWearLabel(nextCondition),
     note,
@@ -64,36 +68,66 @@ export function applyVehicleRepair(
   state: GameState,
   command: RepairCommand,
 ): GameState {
+  if (state.economy.processedTransactionIds.includes(command.actionId)) {
+    return state;
+  }
+
   const vehicle = state.vehicles.find((item) => item.id === command.vehicleId);
   if (!vehicle || !vehicle.active) {
     throw new Error('Repair requires an active team vehicle');
   }
 
-  const option = getRepairOption(command.optionId);
-  if (state.team.cash < option.cost) {
-    throw new Error(`Insufficient cash for ${option.label}`);
+  const quote = getRepairQuote(vehicle, command.optionId, state.staff);
+  if (state.team.cash < quote.cost) {
+    throw new Error(`Insufficient cash for ${quote.label}`);
   }
   if (vehicle.condition >= 100) {
     throw new Error(`Car #${vehicle.number} is already at full condition`);
   }
 
-  const nextCondition = Math.min(100, vehicle.condition + option.conditionRestored);
+  const nextCondition = Math.min(100, quote.projectedCondition);
+  if (nextCondition <= vehicle.condition) {
+    throw new Error('Repairs cannot reduce vehicle condition');
+  }
   const restored = nextCondition - vehicle.condition;
 
   return {
     ...state,
     team: {
       ...state.team,
-      cash: state.team.cash - option.cost,
+      cash: state.team.cash - quote.cost,
     },
     vehicles: state.vehicles.map((item) =>
       item.id === vehicle.id
         ? updateVehicleCondition(
             item,
             nextCondition,
-            `${option.label} complete: +${restored}% condition.`,
+            `${quote.label} complete: +${restored}% condition.`,
           )
         : item,
     ),
+    economy: {
+      ...state.economy,
+      processedTransactionIds: [
+        ...state.economy.processedTransactionIds,
+        command.actionId,
+      ],
+      repairTransactions: [
+        ...state.economy.repairTransactions,
+        {
+          id: command.actionId,
+          raceId: command.raceId,
+          vehicleId: vehicle.id,
+          vehicleNumber: vehicle.number,
+          optionId: command.optionId,
+          damageClass: quote.damageClass,
+          baseCost: quote.baseCost,
+          budgetFixerDiscount: quote.budgetFixerDiscount,
+          chargedCost: quote.cost,
+          conditionBefore: vehicle.condition,
+          conditionAfter: nextCondition,
+        },
+      ],
+    },
   };
 }

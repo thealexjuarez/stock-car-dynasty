@@ -1,0 +1,68 @@
+# Stock Car Dynasty implementation roadmap
+
+The latest approved design direction is authoritative. Each bundle ships from
+its own branch and draft pull request. A later bundle does not begin until the
+previous bundle is tested, approved, and merged.
+
+## 1. Foundation, Economy, and Repairs
+
+- Canonical manufacturers, drivers, archetypes, and shared typed data
+- Bible payout table, starter sponsor payment, and weekend operating cost
+- Bible damage classifications and context-aware Repair Bay economics
+- Exact-once transaction history and version 2 state normalization
+
+Version 2 adds persistent economy transaction records, damage classifications,
+driver sponsor leads, and canonical archetype typing. Normalization maps obsolete
+Ranger manufacturer identifiers to Chevrolat, corrects Aiden Voss without
+resetting campaign progress, derives vehicle damage state from condition, and
+preserves processed transaction identifiers so old actions are not replayed.
+
+## 2. Driver Market and Recruiting
+
+- Approximately 20 persistent prospects
+- All 26 Bible recruiting actions and RP prices through 300 RP plus cash
+- Three actions per prospect per weekend
+- Starting RP 100; 100 RP per settled weekend; carryover with no initial cap
+- Recruiting Pull separate from spendable RP
+- Four locked scouting bands, archetype discovery, and six social actions
+- Prospect Engagement and Recruiting Visibility
+- Deterministic action variance from -10% through +10%
+- Repeat effects at 100%, 60%, then 30%; applicable staff boost at 10%
+- Private Test Day at 250 RP and $20,000
+- Deterministic offers with a 75 acceptance threshold
+- One reserve/development slot, one- through three-year offers
+- Signing bonus at 10% of annual salary with a $5,000 minimum
+- Rejected offers consume RP but not cash
+- Relationship depth rewards distinct recruiting pathways
+- Prospect sponsor backing remains separate from active Apex sponsors
+
+## 3. 32-Car Race Field Expansion
+
+- 32-car fields with centralized fictional teams and drivers
+- Scalable deterministic generation, timing tower, results, and standings
+- Portrait performance and locked payout-table compatibility
+
+## 4. Race Strategy, Tires, and Archetype Integration
+
+- Pace, pit-window, driver-instruction, and stage-plan choices
+- Tire wear and long-run falloff
+- Full race-day archetype effects
+- Aggressive Driver incident risk
+- Reliable Journeyman equipment protection
+- Track-specific strengths and risks
+
+## 5. Brand, Social Media, Sponsors, and Loyalty
+
+- Brand/Social management screen
+- Sponsor market, objectives, loyalty, payments, and bonuses
+- Driver sponsor portfolios and sponsor-backed prospect conditions
+- Aiden Voss's dormant Coastal Marine Supply lead
+- Organization-wide Social Media staff effects
+
+## 6. Development, Facilities, and Progression Feedback
+
+- Scouting Office, Development Apartments, Gym, and manufacturer progression
+- Reserve-driver development
+- EXP change history and reasons
+- Development plans, promotion, and replacement groundwork
+- Facility upgrade costs and effects

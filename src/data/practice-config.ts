@@ -1,4 +1,3 @@
-import type { TrackType } from '@/types/game';
 import type { PracticeChoice, PracticeChoiceId } from '@/types/practice';
 
 /**
@@ -45,10 +44,6 @@ export const practiceResolutionTuning = {
     engineeringQuality: 0.2,
     crewChiefQuality: 0.1,
   },
-  archetypeFitBonus: {
-    primary: 3,
-    secondary: 1.5,
-  },
   varianceMaximum: 2,
   confidenceBounds: {
     minimum: 35,
@@ -59,14 +54,6 @@ export const practiceResolutionTuning = {
     usable: 60,
   },
 } as const;
-
-export const trackTypeArchetypeFits: Record<TrackType, readonly string[]> = {
-  'Short Track': ['Short Track Specialist', 'Aggressive Driver', 'Reliable Journeyman'],
-  Intermediate: ['Complete Driver', 'Long Run Driver', 'Reliable Journeyman'],
-  Superspeedway: ['Superspeedway Specialist', 'Reliable Journeyman'],
-  'Road Course': ['Road Course Specialist', 'Complete Driver', 'Long Run Driver'],
-  'Long Oval': ['Long Run Driver', 'Complete Driver', 'Reliable Journeyman'],
-};
 
 export function isPracticeChoiceId(value: string | undefined): value is PracticeChoiceId {
   return practiceChoices.some((choice) => choice.id === value);

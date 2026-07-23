@@ -1,5 +1,10 @@
+import { resolveRacePayout } from '@/data/economy-config';
 import { raceWeekendTuning as tuning } from '@/data/race-weekend-config';
 import { getNextRace } from '@/data/starter-game-state';
+import {
+  applyWeekendEconomy,
+  getSettlementTransactionId,
+} from '@/simulation/economy';
 import { getSeededUnit, getSeededVariance } from '@/simulation/seeded-variance';
 import { updateVehicleCondition } from '@/simulation/vehicle-repair';
 import type { Driver, GameState, Track } from '@/types/game';
@@ -74,13 +79,6 @@ export function resolveQualifying(
   return { raceId: race.id, seed, entries };
 }
 
-function getPayout(position: number) {
-  return Math.max(
-    tuning.payout.minimum,
-    tuning.payout.winner - (position - 1) * tuning.payout.positionStep,
-  );
-}
-
 function getExp(position: number, finished: boolean) {
   return (
     Math.max(tuning.exp.minimum, tuning.exp.base - position * tuning.exp.positionStep) +
@@ -144,7 +142,7 @@ export function resolveRace(
         finishPosition,
         score,
         status: dnf ? 'DNF' : 'Running',
-        payout: isPlayerTeam ? getPayout(finishPosition) : 0,
+        payout: isPlayerTeam ? resolveRacePayout(finishPosition) : 0,
         exp: isPlayerTeam ? getExp(finishPosition, !dnf) : 0,
         conditionLoss: isPlayerTeam
           ? getConditionLoss(`${seed}:${entrant.id}`, dnf)
@@ -178,6 +176,11 @@ function addDays(date: string, days: number) {
 }
 
 export function applyRaceSettlement(state: GameState, result: RaceResult): GameState {
+  const transactionId = getSettlementTransactionId(result);
+  if (state.economy.processedTransactionIds.includes(transactionId)) {
+    return state;
+  }
+
   const currentIndex = state.calendar.findIndex((event) => event.id === result.raceId);
   const nextIndex = currentIndex + 1;
   const startsNewSeason = nextIndex >= state.calendar.length;
@@ -187,13 +190,14 @@ export function applyRaceSettlement(state: GameState, result: RaceResult): GameS
     throw new Error('Cannot advance from an unknown event');
   }
 
+  const stateAfterEconomy = applyWeekendEconomy(state, result);
+
   return {
-    ...state,
+    ...stateAfterEconomy,
     season: state.season + (startsNewSeason ? 1 : 0),
     week: nextRace.week,
     currentDate: addDays(state.currentDate, 7),
     nextRaceId: nextRace.id,
-    team: { ...state.team, cash: state.team.cash + result.playerPayout },
     drivers: state.drivers.map((driver) => {
       const entry = result.entries.find((item) => item.driverId === driver.id);
       return entry ? { ...driver, exp: driver.exp + entry.exp } : driver;
