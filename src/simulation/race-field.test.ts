@@ -1,12 +1,19 @@
 /// <reference types="node" />
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 
+import { tabs } from '@/data/app-shell';
 import { createInitialRaceFieldState } from '@/data/erca-field-data';
 import { manufacturerCatalog } from '@/data/manufacturer-data';
 import { raceFieldTuning, resolveFieldPoints } from '@/data/race-field-config';
-import { getWeekendEntrants } from '@/data/race-presentation-data';
+import {
+  getRacePresentationConfig,
+  getRacePresentationEntrants,
+  getWeekendEntrants,
+} from '@/data/race-presentation-data';
 import { starterGameState } from '@/data/starter-game-state';
 import {
   applyRaceFieldSettlement,
@@ -15,6 +22,7 @@ import {
   selectFocusedTimingTower,
   selectStandings,
 } from '@/simulation/race-field';
+import { createRacePresentationModel } from '@/simulation/race-presentation';
 import { updateVehicleCondition } from '@/simulation/vehicle-repair';
 import {
   createInitialGameSessionState,
@@ -238,6 +246,146 @@ test('state v3 migration adds the field without resetting existing career progre
   assert.equal(normalized.drivers[0].exp, 88);
   const renormalized = normalizeGameState(normalized);
   assert.deepEqual(renormalized.raceField, normalized.raceField);
+});
+
+test('race-field migration restores canonical identity without resetting progress', () => {
+  const state = structuredClone(starterGameState);
+  const canonical = createInitialRaceFieldState();
+  const entry = state.raceField.entries[0];
+  const opponent = state.raceField.opponentDrivers[0];
+  const organization = state.raceField.organizations[0];
+
+  Object.assign(entry, {
+    carNumber: '2',
+    driverId: opponent.id,
+    teamId: 'team-ironwood-racing',
+    manufacturerId: 'fard',
+    active: false,
+    isPlayerTeam: false,
+  });
+  Object.assign(opponent, {
+    name: 'Stale Driver Name',
+    teamId: 'team-apex-motorsports',
+    carNumber: '45',
+    manufacturerId: 'toyoda',
+    active: false,
+    overall: 79,
+  });
+  Object.assign(organization, {
+    name: 'Stale Team Name',
+    shortCode: 'OLD',
+    manufacturerId: 'fard',
+    isPlayerTeam: false,
+    teamPerformance: 61,
+  });
+  state.raceField.standings[0].points = 81;
+  state.raceField.standings[0].starts = 4;
+  state.raceField.processedRaceIds = ['standings:erca-1'];
+
+  const normalized = normalizeGameState(state);
+  const canonicalEntries = new Map(
+    canonical.entries.map((canonicalEntry) => [canonicalEntry.id, canonicalEntry]),
+  );
+  const canonicalDrivers = new Map(
+    canonical.opponentDrivers.map((driver) => [driver.id, driver]),
+  );
+  const canonicalOrganizations = new Map(
+    canonical.organizations.map((team) => [team.id, team]),
+  );
+
+  normalized.raceField.entries.forEach((normalizedEntry) => {
+    assert.deepEqual(normalizedEntry, canonicalEntries.get(normalizedEntry.id));
+  });
+  normalized.raceField.opponentDrivers.forEach((driver) => {
+    const canonicalDriver = canonicalDrivers.get(driver.id)!;
+    assert.equal(driver.name, canonicalDriver.name);
+    assert.equal(driver.teamId, canonicalDriver.teamId);
+    assert.equal(driver.carNumber, canonicalDriver.carNumber);
+    assert.equal(driver.manufacturerId, canonicalDriver.manufacturerId);
+    assert.equal(driver.active, canonicalDriver.active);
+  });
+  normalized.raceField.organizations.forEach((team) => {
+    const canonicalTeam = canonicalOrganizations.get(team.id)!;
+    assert.equal(team.name, canonicalTeam.name);
+    assert.equal(team.shortCode, canonicalTeam.shortCode);
+    assert.equal(team.manufacturerId, canonicalTeam.manufacturerId);
+    assert.equal(team.isPlayerTeam, canonicalTeam.isPlayerTeam);
+  });
+
+  assert.equal(normalized.raceField.opponentDrivers[0].overall, 79);
+  assert.equal(normalized.raceField.organizations[0].teamPerformance, 61);
+  assert.equal(normalized.raceField.standings[0].points, 81);
+  assert.equal(normalized.raceField.standings[0].starts, 4);
+  assert.deepEqual(normalized.raceField.processedRaceIds, ['standings:erca-1']);
+  assert.equal(new Set(normalized.raceField.entries.map((item) => item.carNumber)).size, 32);
+  assert.deepEqual(
+    normalized.raceField.entries
+      .filter((item) => item.isPlayerTeam)
+      .map((item) => [item.carNumber, item.driverId]),
+    [
+      ['45', 'driver-cole-mercer'],
+      ['46', 'driver-aiden-voss'],
+    ],
+  );
+});
+
+test('checkered playback order exactly matches the authoritative official results', () => {
+  const complete = completeWeekend();
+  const config = getRacePresentationConfig('race');
+  const entrants = getRacePresentationEntrants(complete.game, complete.weekend);
+  const model = createRacePresentationModel(
+    entrants,
+    config,
+    config.sessionDurationMs,
+    'driver-cole-mercer',
+  );
+  const officialOrder = [...complete.weekend.race!.entries]
+    .sort(
+      (left, right) =>
+        left.finishPosition - right.finishPosition ||
+        left.id.localeCompare(right.id),
+    )
+    .map((entry) => entry.id);
+
+  assert.equal(model.isComplete, true);
+  assert.deepEqual(
+    model.runningOrder.map((entry) => entry.id),
+    officialOrder,
+  );
+  assert.deepEqual(
+    model.runningOrder.map((entry) => entry.position),
+    Array.from({ length: 32 }, (_, index) => index + 1),
+  );
+  model.runningOrder.forEach((entry) => {
+    assert.equal(entry.position, entry.authoritativeFinishPosition);
+  });
+});
+
+test('mobile web shell keeps all five tabs in one non-overlapping row', () => {
+  const webTabsSource = readFileSync(
+    path.resolve(process.cwd(), 'src/components/app-tabs.web.tsx'),
+    'utf8',
+  );
+
+  assert.equal(tabs.length, 5);
+  assert.match(webTabsSource, /TabSlot style=\{\{ flex: 1, minHeight: 0 \}\}/);
+  assert.match(webTabsSource, /flexWrap: 'nowrap'/);
+  assert.match(webTabsSource, /flexShrink: 0/);
+  assert.doesNotMatch(webTabsSource, /position: 'absolute'/);
+});
+
+test('compact timing tower keeps readable text and the ten-row portrait cap', () => {
+  const timingTowerSource = readFileSync(
+    path.resolve(
+      process.cwd(),
+      'src/components/race-presentation/timing-tower.tsx',
+    ),
+    'utf8',
+  );
+
+  assert.match(timingTowerSource, /compact \? 9 : 11/);
+  assert.match(timingTowerSource, /initialNumToRender=\{10\}/);
+  assert.match(timingTowerSource, /maxToRenderPerBatch=\{10\}/);
 });
 
 test('focused timing tower pins leader and Apex cars within the portrait cap', () => {

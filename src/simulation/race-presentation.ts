@@ -22,11 +22,26 @@ const getDistance = (
   elapsedMs: number,
 ) => {
   const progress = Math.min(1, elapsedMs / config.sessionDurationMs);
-
-  return (
+  const simulatedDistance =
     getStartDistance(entrant, config) +
-    config.presentationTravelLaps * progress * entrant.paceFactor
-  );
+    config.presentationTravelLaps * progress * entrant.paceFactor;
+
+  if (
+    config.kind !== 'race' ||
+    entrant.authoritativeFinishPosition === undefined ||
+    progress <= 0.9
+  ) {
+    return simulatedDistance;
+  }
+
+  const finishOrderSpacing = 0.012;
+  const finishOrderDistance =
+    7.3 +
+    config.presentationTravelLaps * progress +
+    (config.fieldSize - entrant.authoritativeFinishPosition) * finishOrderSpacing;
+  const convergence = (progress - 0.9) / 0.1;
+
+  return simulatedDistance * (1 - convergence) + finishOrderDistance * convergence;
 };
 
 function getInterval(leaderDistance: number, distance: number, position: number) {
@@ -42,12 +57,29 @@ export function getRunningOrder(
   config: RacePresentationConfig,
   elapsedMs: number,
 ): RunningOrderEntry[] {
+  const isResolvedRaceFinish =
+    config.kind === 'race' && elapsedMs >= config.sessionDurationMs;
   const ordered = entrants
     .map((entrant) => ({ entrant, distance: getDistance(entrant, config, elapsedMs) }))
     .sort(
-      (left, right) =>
-        right.distance - left.distance ||
-        left.entrant.id.localeCompare(right.entrant.id),
+      (left, right) => {
+        if (
+          isResolvedRaceFinish &&
+          left.entrant.authoritativeFinishPosition !== undefined &&
+          right.entrant.authoritativeFinishPosition !== undefined
+        ) {
+          return (
+            left.entrant.authoritativeFinishPosition -
+              right.entrant.authoritativeFinishPosition ||
+            left.entrant.id.localeCompare(right.entrant.id)
+          );
+        }
+
+        return (
+          right.distance - left.distance ||
+          left.entrant.id.localeCompare(right.entrant.id)
+        );
+      },
     );
   const leaderDistance = ordered[0]?.distance ?? 0;
 

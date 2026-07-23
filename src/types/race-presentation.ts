@@ -34,6 +34,7 @@ export type RacePresentationEntrant = {
   qualifyingStartDistance: number;
   raceStartDistance: number;
   paceFactor: number;
+  authoritativeFinishPosition?: number;
   tireStatus: TireStatus;
   tirePercent: number;
   fuelPercent: number;

@@ -161,6 +161,7 @@ export function getRacePresentationEntrants(
           ? 0.99 + (raceFieldTuning.fieldSize - orderedPosition) * 0.0012
           : racePresentationAssumptions.presentationPaceBase +
             rating * racePresentationAssumptions.presentationPaceRatingScale,
+      authoritativeFinishPosition: race?.finishPosition,
       tireStatus: index < 16 ? 'Good' : 'Used',
       tirePercent: Math.max(78, 94 - (index % 12)),
       fuelPercent: Math.max(66, 76 - (index % 10)),

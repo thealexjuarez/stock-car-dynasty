@@ -250,6 +250,12 @@ function normalizeRaceField(
       ...fallback,
       ...priorOrganizations.get(fallback.id),
       id: fallback.id,
+      name: fallback.name,
+      shortCode: fallback.shortCode,
+      manufacturerId: fallback.manufacturerId,
+      primaryColor: fallback.primaryColor,
+      accentColor: fallback.accentColor,
+      isPlayerTeam: fallback.isPlayerTeam,
     })),
     opponentDrivers: initial.opponentDrivers.map((fallback) => {
       const prior = priorDrivers.get(fallback.id);
@@ -257,6 +263,11 @@ function normalizeRaceField(
         ...fallback,
         ...prior,
         id: fallback.id,
+        name: fallback.name,
+        teamId: fallback.teamId,
+        carNumber: fallback.carNumber,
+        manufacturerId: fallback.manufacturerId,
+        active: fallback.active,
         archetypes: [
           prior?.archetypes[0] ?? fallback.archetypes[0],
           prior?.archetypes[1] ?? fallback.archetypes[1],
@@ -264,11 +275,21 @@ function normalizeRaceField(
         stats: { ...fallback.stats, ...prior?.stats },
       };
     }),
-    entries: initial.entries.map((fallback) => ({
-      ...fallback,
-      ...priorEntries.get(fallback.id),
-      id: fallback.id,
-    })),
+    entries: initial.entries.map((fallback) => {
+      const prior = priorEntries.get(fallback.id);
+      return {
+        ...fallback,
+        ...prior,
+        id: fallback.id,
+        carNumber: fallback.carNumber,
+        driverId: fallback.driverId,
+        teamId: fallback.teamId,
+        manufacturerId: fallback.manufacturerId,
+        active: fallback.active,
+        series: fallback.series,
+        isPlayerTeam: fallback.isPlayerTeam,
+      };
+    }),
     standings,
     processedRaceIds: unique(raceField?.processedRaceIds ?? []),
   };
