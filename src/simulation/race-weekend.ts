@@ -5,6 +5,7 @@ import {
   applyWeekendEconomy,
   getSettlementTransactionId,
 } from '@/simulation/economy';
+import { applyRecruitingWeekendSettlement } from '@/simulation/recruiting';
 import { getSeededUnit, getSeededVariance } from '@/simulation/seeded-variance';
 import { updateVehicleCondition } from '@/simulation/vehicle-repair';
 import type { Driver, GameState, Track } from '@/types/game';
@@ -192,7 +193,7 @@ export function applyRaceSettlement(state: GameState, result: RaceResult): GameS
 
   const stateAfterEconomy = applyWeekendEconomy(state, result);
 
-  return {
+  const settledState: GameState = {
     ...stateAfterEconomy,
     season: state.season + (startsNewSeason ? 1 : 0),
     week: nextRace.week,
@@ -215,4 +216,6 @@ export function applyRaceSettlement(state: GameState, result: RaceResult): GameS
       );
     }),
   };
+
+  return applyRecruitingWeekendSettlement(settledState, result);
 }

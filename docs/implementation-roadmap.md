@@ -17,7 +17,7 @@ Ranger manufacturer identifiers to Chevrolat, corrects Aiden Voss without
 resetting campaign progress, derives vehicle damage state from condition, and
 preserves processed transaction identifiers so old actions are not replayed.
 
-## 2. Driver Market and Recruiting
+## 2. Driver Market and Recruiting (state version 3)
 
 - Approximately 20 persistent prospects
 - All 26 Bible recruiting actions and RP prices through 300 RP plus cash
@@ -35,6 +35,10 @@ preserves processed transaction identifiers so old actions are not replayed.
 - Rejected offers consume RP but not cash
 - Relationship depth rewards distinct recruiting pathways
 - Prospect sponsor backing remains separate from active Apex sponsors
+- Version 2 campaigns normalize to 100 RP, 44 Visibility, the prototype market,
+  empty campaigns, and an open reserve slot without retroactive RP or settlement
+  replay; existing cash, EXP, calendar, vehicles, repairs, and economy ledgers
+  remain intact
 
 ## 3. 32-Car Race Field Expansion
 

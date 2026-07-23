@@ -1,3 +1,5 @@
+import type { RecruitingState } from '@/types/recruiting';
+
 export type DriverMorale = 'Happy' | 'Neutral' | 'Concerned';
 export type DriverConfidence = 'Steady' | 'Shaken' | 'Hot';
 export type DriverFatigue = 'Fresh' | 'Tired' | 'Worn';
@@ -133,4 +135,5 @@ export type GameState = {
   calendar: RaceEvent[];
   nextRaceId: string;
   economy: EconomyState;
+  recruiting: RecruitingState;
 };

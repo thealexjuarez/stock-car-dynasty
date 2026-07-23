@@ -3,6 +3,10 @@ import {
   aidenVossSponsorLead,
 } from '@/data/driver-canon';
 import { manufacturerCatalog } from '@/data/manufacturer-data';
+import {
+  createInitialRecruitingState,
+  createProspectProgress,
+} from '@/data/prospect-data';
 import { starterGameState } from '@/data/starter-game-state';
 import { updateVehicleCondition } from '@/simulation/vehicle-repair';
 import type {
@@ -13,8 +17,13 @@ import type {
   ManufacturerId,
 } from '@/types/game';
 import type { GameSessionState } from '@/types/race-weekend';
+import type {
+  ProspectRecruitingProgress,
+  RecruitingState,
+  ReserveDriver,
+} from '@/types/recruiting';
 
-export const CURRENT_GAME_STATE_VERSION = 2;
+export const CURRENT_GAME_STATE_VERSION = 3;
 
 const canonicalArchetypes = new Set<DriverArchetype>([
   'Complete Driver',
@@ -113,10 +122,98 @@ function normalizeEconomy(
   };
 }
 
+function normalizeProgress(
+  fallback: ProspectRecruitingProgress,
+  progress: Partial<ProspectRecruitingProgress> | undefined,
+): ProspectRecruitingProgress {
+  return {
+    ...fallback,
+    ...progress,
+    completedActionUses: { ...(progress?.completedActionUses ?? {}) },
+    actionsUsedThisWeekend: [...(progress?.actionsUsedThisWeekend ?? [])],
+    actionHistory: (progress?.actionHistory ?? []).map((entry) => ({
+      ...entry,
+      reasons: [...entry.reasons],
+    })),
+    relationshipPaths: [...(progress?.relationshipPaths ?? [])],
+    offerHistory: (progress?.offerHistory ?? []).map((entry) => ({
+      ...entry,
+      breakdown: {
+        ...entry.breakdown,
+        unmetDealbreakers: [...entry.breakdown.unmetDealbreakers],
+      },
+    })),
+    recruitingCostToDate: {
+      ...fallback.recruitingCostToDate,
+      ...(progress?.recruitingCostToDate ?? {}),
+    },
+  };
+}
+
+function normalizeRecruiting(
+  recruiting: Partial<RecruitingState> | undefined,
+  recruitingPull: number,
+  brandPower: number,
+): RecruitingState {
+  const initial = createInitialRecruitingState(recruitingPull, brandPower);
+  const campaigns = Object.fromEntries(
+    initial.prospects.map((prospect) => {
+      const fallback =
+        initial.campaigns[prospect.id] ??
+        createProspectProgress(prospect, recruitingPull, initial.visibility);
+      return [
+        prospect.id,
+        normalizeProgress(fallback, recruiting?.campaigns?.[prospect.id]),
+      ];
+    }),
+  );
+  const reserveDriver: ReserveDriver | undefined = recruiting?.reserveDriver
+    ? {
+        ...recruiting.reserveDriver,
+        stats: { ...recruiting.reserveDriver.stats },
+        archetypes: [
+          recruiting.reserveDriver.archetypes[0],
+          recruiting.reserveDriver.archetypes[1],
+        ],
+        developmentHistory: [...recruiting.reserveDriver.developmentHistory],
+        sponsorLeads: recruiting.reserveDriver.sponsorLeads.map((lead) => ({
+          ...lead,
+          projectedRaceBacking: { ...lead.projectedRaceBacking },
+        })),
+        ...(recruiting.reserveDriver.sponsorPackage
+          ? {
+              sponsorPackage: {
+                ...recruiting.reserveDriver.sponsorPackage,
+                projectedRaceBacking: {
+                  ...recruiting.reserveDriver.sponsorPackage
+                    .projectedRaceBacking,
+                },
+                conditions: [
+                  ...recruiting.reserveDriver.sponsorPackage.conditions,
+                ],
+              },
+            }
+          : {}),
+      }
+    : undefined;
+
+  return {
+    ...initial,
+    ...recruiting,
+    prospects: initial.prospects,
+    campaigns,
+    processedTransactionIds: [
+      ...(recruiting?.processedTransactionIds ?? []),
+    ],
+    reserveDriver,
+  };
+}
+
 export function normalizeGameState(state: GameState): GameState {
   const legacyState = state as GameState & {
     stateVersion?: number;
     economy?: Partial<EconomyState>;
+    recruiting?: Partial<RecruitingState>;
     team: GameState['team'] & { manufacturerId?: string };
   };
 
@@ -139,7 +236,17 @@ export function normalizeGameState(state: GameState): GameState {
         vehicle.note ?? 'Vehicle state restored.',
       ),
     ),
-    staff: state.staff.map((member) => ({ ...member })),
+    staff: state.staff.map((member) =>
+      member.id === 'staff-dana-price' || member.name === 'Dana Price'
+        ? {
+            ...member,
+            id: 'staff-dana-pierce',
+            name: 'Dana Pierce',
+            effect:
+              '+10% scouting effectiveness on short-track and regional prospects.',
+          }
+        : { ...member },
+    ),
     sponsors: state.sponsors.map((sponsor) => ({ ...sponsor })),
     manufacturers: manufacturerCatalog.map((manufacturer) => ({
       ...manufacturer,
@@ -152,6 +259,11 @@ export function normalizeGameState(state: GameState): GameState {
     })),
     calendar: state.calendar.map((event) => ({ ...event })),
     economy: normalizeEconomy(legacyState.economy),
+    recruiting: normalizeRecruiting(
+      legacyState.recruiting,
+      state.team.recruitingPull,
+      state.team.brandPower,
+    ),
   };
 }
 
