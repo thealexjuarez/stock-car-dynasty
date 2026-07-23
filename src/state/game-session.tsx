@@ -15,6 +15,10 @@ import { starterGameState } from '@/data/starter-game-state';
 import { getSettlementTransactionId } from '@/simulation/economy';
 import type { RepairOptionId } from '@/types/game';
 import type { PracticeChoiceId } from '@/types/practice';
+import type {
+  ContractTermYears,
+  RecruitingActionId,
+} from '@/types/recruiting';
 import type { GameSessionAction, GameSessionState } from '@/types/race-weekend';
 
 type GameSessionContextValue = {
@@ -26,6 +30,15 @@ type GameSessionContextValue = {
   showResults: () => void;
   advanceEvent: () => void;
   repairVehicle: (vehicleId: string, optionId: RepairOptionId) => void;
+  completeRecruitingAction: (
+    prospectId: string,
+    actionId: Exclude<RecruitingActionId, 'contract-offer'>,
+  ) => void;
+  makeRecruitingOffer: (
+    prospectId: string,
+    annualSalary: number,
+    termYears: ContractTermYears,
+  ) => void;
 };
 
 const GameSessionContext = createContext<GameSessionContextValue | undefined>(undefined);
@@ -69,6 +82,47 @@ export function GameSessionProvider({ children }: PropsWithChildren) {
           ].join(':'),
           vehicleId,
           optionId,
+        });
+      },
+      completeRecruitingAction: (prospectId, recruitingActionId) => {
+        const progress = state.game.recruiting.campaigns[prospectId];
+        if (!progress) {
+          throw new Error(`Unknown recruiting prospect: ${prospectId}`);
+        }
+        const useIndex =
+          (progress.completedActionUses[recruitingActionId] ?? 0) + 1;
+        send({
+          type: 'COMPLETE_RECRUITING_ACTION',
+          transactionId: [
+            'recruit',
+            state.game.season,
+            state.weekend.raceId,
+            prospectId,
+            recruitingActionId,
+            useIndex,
+          ].join(':'),
+          prospectId,
+          recruitingActionId,
+        });
+      },
+      makeRecruitingOffer: (prospectId, annualSalary, termYears) => {
+        const progress = state.game.recruiting.campaigns[prospectId];
+        if (!progress) {
+          throw new Error(`Unknown recruiting prospect: ${prospectId}`);
+        }
+        send({
+          type: 'MAKE_RECRUITING_OFFER',
+          transactionId: [
+            'offer',
+            state.game.season,
+            state.weekend.raceId,
+            prospectId,
+            progress.offerHistory.length + 1,
+          ].join(':'),
+          prospectId,
+          annualSalary,
+          termYears,
+          role: 'Reserve / Development',
         });
       },
     }),

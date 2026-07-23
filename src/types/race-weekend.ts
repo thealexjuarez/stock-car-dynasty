@@ -1,4 +1,8 @@
 import type { GameState, RepairOptionId } from '@/types/game';
+import type {
+  ContractTermYears,
+  RecruitingActionId,
+} from '@/types/recruiting';
 import type { PracticeChoiceId, PracticeResult } from '@/types/practice';
 
 export type RaceWeekendPhase =
@@ -77,4 +81,18 @@ export type GameSessionAction =
       actionId: string;
       vehicleId: string;
       optionId: RepairOptionId;
+    }
+  | {
+      type: 'COMPLETE_RECRUITING_ACTION';
+      transactionId: string;
+      prospectId: string;
+      recruitingActionId: Exclude<RecruitingActionId, 'contract-offer'>;
+    }
+  | {
+      type: 'MAKE_RECRUITING_OFFER';
+      transactionId: string;
+      prospectId: string;
+      annualSalary: number;
+      termYears: ContractTermYears;
+      role: 'Reserve / Development';
     };

@@ -16,6 +16,7 @@ export function TeamScreen() {
   const { state } = useGameSession();
   const { team, drivers, vehicles } = state.game;
   const manufacturer = getTeamManufacturer(state.game);
+  const reserveDriver = state.game.recruiting.reserveDriver;
 
   return (
     <Screen>
@@ -53,6 +54,44 @@ export function TeamScreen() {
             </Link>
           </AppCard>
         ))}
+      </View>
+
+      <View style={{ gap: theme.spacing.md }}>
+        <SectionHeader
+          title="Reserve / Development"
+          subtitle="One pipeline slot; reserve drivers do not replace the active #45 or #46"
+        />
+        <AppCard>
+          {reserveDriver ? (
+            <>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md }}>
+                <View style={{ flex: 1, gap: theme.spacing.xs }}>
+                  <AppText variant="title">{reserveDriver.name}</AppText>
+                  <AppText tone="muted" variant="caption">
+                    No active car number · {reserveDriver.archetypes.join(' / ')}
+                  </AppText>
+                </View>
+                <StatusBadge label={`OVR ${reserveDriver.overall}`} tone="blue" />
+              </View>
+              <AppRow label="Potential" detail={`${reserveDriver.potential}`} />
+              <AppRow label="Contract" detail={`${reserveDriver.termYears} years · $${reserveDriver.annualSalary.toLocaleString()}/year`} />
+              <AppRow label="Role" detail={reserveDriver.role} />
+              <AppText variant="caption" tone="soft">
+                Promotion, release, active-seat assignment, and annual payroll are reserved for later bundles.
+              </AppText>
+            </>
+          ) : (
+            <>
+              <AppText variant="title">Open Development Slot</AppText>
+              <AppText tone="muted">
+                Scout and sign one prospect without changing the current race lineup.
+              </AppText>
+              <Link href="/(tabs)/market" asChild>
+                <AppButton label="Open Driver Market" variant="secondary" />
+              </Link>
+            </>
+          )}
+        </AppCard>
       </View>
 
       <View style={{ gap: theme.spacing.md }}>

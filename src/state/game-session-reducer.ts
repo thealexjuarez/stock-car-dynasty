@@ -9,6 +9,10 @@ import {
   resolveRace,
 } from '@/simulation/race-weekend';
 import {
+  applyRecruitingAction,
+  applyRecruitingOffer,
+} from '@/simulation/recruiting';
+import {
   applyVehicleRepair,
   getRaceReadinessBlockers,
 } from '@/simulation/vehicle-repair';
@@ -53,6 +57,70 @@ function cloneGameState(state: GameState): GameState {
         ...settlement,
         winningsByCar: settlement.winningsByCar.map((line) => ({ ...line })),
       })),
+    },
+    recruiting: {
+      ...state.recruiting,
+      prospects: state.recruiting.prospects.map((prospect) => ({
+        ...prospect,
+        stats: { ...prospect.stats },
+        archetypes: [...prospect.archetypes],
+        dealbreakers: [...prospect.dealbreakers],
+        manufacturerFit: [...prospect.manufacturerFit],
+        trackStrengths: [...prospect.trackStrengths],
+        ...(prospect.sponsorPackage
+          ? {
+              sponsorPackage: {
+                ...prospect.sponsorPackage,
+                projectedRaceBacking: {
+                  ...prospect.sponsorPackage.projectedRaceBacking,
+                },
+                conditions: [...prospect.sponsorPackage.conditions],
+              },
+            }
+          : {}),
+      })),
+      campaigns: Object.fromEntries(
+        Object.entries(state.recruiting.campaigns).map(([id, progress]) => [
+          id,
+          {
+            ...progress,
+            completedActionUses: { ...progress.completedActionUses },
+            actionsUsedThisWeekend: [...progress.actionsUsedThisWeekend],
+            actionHistory: progress.actionHistory.map((entry) => ({
+              ...entry,
+              reasons: [...entry.reasons],
+            })),
+            relationshipPaths: [...progress.relationshipPaths],
+            offerHistory: progress.offerHistory.map((entry) => ({
+              ...entry,
+              breakdown: {
+                ...entry.breakdown,
+                unmetDealbreakers: [...entry.breakdown.unmetDealbreakers],
+              },
+            })),
+            recruitingCostToDate: { ...progress.recruitingCostToDate },
+          },
+        ]),
+      ),
+      processedTransactionIds: [
+        ...state.recruiting.processedTransactionIds,
+      ],
+      reserveDriver: state.recruiting.reserveDriver
+        ? {
+            ...state.recruiting.reserveDriver,
+            stats: { ...state.recruiting.reserveDriver.stats },
+            archetypes: [...state.recruiting.reserveDriver.archetypes],
+            developmentHistory: [
+              ...state.recruiting.reserveDriver.developmentHistory,
+            ],
+            sponsorLeads: state.recruiting.reserveDriver.sponsorLeads.map(
+              (lead) => ({
+                ...lead,
+                projectedRaceBacking: { ...lead.projectedRaceBacking },
+              }),
+            ),
+          }
+        : undefined,
     },
   };
 }
@@ -155,6 +223,30 @@ export function gameSessionReducer(
         raceId: state.weekend.raceId,
         vehicleId: action.vehicleId,
         optionId: action.optionId,
+      });
+      return game === state.game ? state : { ...state, game };
+    }
+    case 'COMPLETE_RECRUITING_ACTION': {
+      const game = applyRecruitingAction(state.game, {
+        transactionId: action.transactionId,
+        prospectId: action.prospectId,
+        actionId: action.recruitingActionId,
+        season: state.game.season,
+        week: state.game.week,
+        raceId: state.weekend.raceId,
+      });
+      return game === state.game ? state : { ...state, game };
+    }
+    case 'MAKE_RECRUITING_OFFER': {
+      const game = applyRecruitingOffer(state.game, {
+        transactionId: action.transactionId,
+        prospectId: action.prospectId,
+        annualSalary: action.annualSalary,
+        termYears: action.termYears,
+        role: action.role,
+        season: state.game.season,
+        week: state.game.week,
+        raceId: state.weekend.raceId,
       });
       return game === state.game ? state : { ...state, game };
     }

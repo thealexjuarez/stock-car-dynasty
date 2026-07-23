@@ -1,19 +1,20 @@
 import type { GameState } from '@/types/game';
 
-/**
- * PR 1 boundary only. Spendable RP, prospect state, and reserve mechanics are
- * intentionally absent until the approved Recruiting bundle.
- */
+/** Compact team-facing recruiting summary backed by authoritative state. */
 export function selectRecruitingFoundation(state: GameState) {
   return {
     cash: state.team.cash,
     manufacturerId: state.team.manufacturerId,
     recruitingPull: state.team.recruitingPull,
-    spendableRp: undefined,
+    spendableRp: state.recruiting.spendableRp,
+    recruitingVisibility: state.recruiting.visibility,
+    availableProspects: state.recruiting.prospects.filter(
+      (prospect) => !state.recruiting.campaigns[prospect.id]?.signed,
+    ).length,
     activeStaffTraits: state.staff
       .filter((member) => member.active)
       .map((member) => member.trait),
     sponsorLeads: state.drivers.flatMap((driver) => driver.sponsorLeads),
-    reserveCapacity: undefined,
+    reserveCapacity: state.recruiting.reserveDriver ? 0 : 1,
   } as const;
 }

@@ -82,6 +82,18 @@ export default function RootLayout() {
             name="vehicles/[number]"
             options={{ headerShown: true, title: 'Vehicle Detail', headerBackTitle: 'Team' }}
           />
+          <Stack.Screen
+            name="recruiting/[id]"
+            options={{ headerShown: true, title: 'Scouting Report', headerBackTitle: 'Market' }}
+          />
+          <Stack.Screen
+            name="recruiting/compare"
+            options={{ headerShown: true, title: 'Driver Comparison', headerBackTitle: 'Market' }}
+          />
+          <Stack.Screen
+            name="recruiting/offer/[id]"
+            options={{ headerShown: true, title: 'Offer Sheet', headerBackTitle: 'Report' }}
+          />
         </Stack>
       </ThemeProvider>
     </GameSessionProvider>
