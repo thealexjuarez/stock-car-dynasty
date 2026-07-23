@@ -5,11 +5,6 @@ export const raceWeekendTuning = {
   raceVariance: 8,
   aiBaselineCenter: 58,
   aiPaceFactorScale: 400,
-  payout: {
-    winner: 14_000,
-    positionStep: 750,
-    minimum: 2_500,
-  },
   exp: {
     base: 180,
     positionStep: 8,
@@ -26,7 +21,6 @@ export const raceWeekendTuning = {
   raceVariance: number;
   aiBaselineCenter: number;
   aiPaceFactorScale: number;
-  payout: Record<string, number>;
   exp: Record<string, number>;
   cautionDnfRisk: Record<Track['cautionRisk'], number>;
 };

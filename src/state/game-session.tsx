@@ -12,6 +12,7 @@ import {
   gameSessionReducer,
 } from '@/state/game-session-reducer';
 import { starterGameState } from '@/data/starter-game-state';
+import { getSettlementTransactionId } from '@/simulation/economy';
 import type { RepairOptionId } from '@/types/game';
 import type { PracticeChoiceId } from '@/types/practice';
 import type { GameSessionAction, GameSessionState } from '@/types/race-weekend';
@@ -44,7 +45,15 @@ export function GameSessionProvider({ children }: PropsWithChildren) {
       showGrid: () => send({ type: 'SHOW_GRID' }),
       beginRace: () => send({ type: 'BEGIN_RACE' }),
       showResults: () => send({ type: 'SHOW_RESULTS' }),
-      advanceEvent: () => send({ type: 'ADVANCE_EVENT' }),
+      advanceEvent: () => {
+        if (!state.weekend.race) {
+          throw new Error('A completed race is required before settlement');
+        }
+        send({
+          type: 'ADVANCE_EVENT',
+          actionId: getSettlementTransactionId(state.weekend.race),
+        });
+      },
       repairVehicle: (vehicleId, optionId) => {
         const vehicle = state.game.vehicles.find((item) => item.id === vehicleId);
         if (!vehicle) {

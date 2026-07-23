@@ -63,7 +63,6 @@ export type RaceWeekendState = {
 export type GameSessionState = {
   game: GameState;
   weekend: RaceWeekendState;
-  processedRepairActionIds: string[];
 };
 
 export type GameSessionAction =
@@ -72,7 +71,7 @@ export type GameSessionAction =
   | { type: 'SHOW_GRID' }
   | { type: 'BEGIN_RACE' }
   | { type: 'SHOW_RESULTS' }
-  | { type: 'ADVANCE_EVENT' }
+  | { type: 'ADVANCE_EVENT'; actionId: string }
   | {
       type: 'REPAIR_VEHICLE';
       actionId: string;

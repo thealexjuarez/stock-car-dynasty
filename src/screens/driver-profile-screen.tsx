@@ -6,6 +6,7 @@ import { AppText } from '@/components/shared/app-text';
 import { ProgressBar } from '@/components/shared/progress-bar';
 import { Screen } from '@/components/shared/screen';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { getEffectiveDriverStats } from '@/data/archetype-config';
 import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
@@ -20,6 +21,8 @@ export function DriverProfileScreen({ driverId }: { driverId: string }) {
       </Screen>
     );
   }
+
+  const effectiveStats = getEffectiveDriverStats(driver);
 
   return (
     <Screen>
@@ -54,8 +57,19 @@ export function DriverProfileScreen({ driverId }: { driverId: string }) {
 
       <AppCard>
         <AppText variant="title">Driver Ratings</AppText>
+        <AppText variant="caption" tone="muted">
+          Archetype boosts preview effective race-day values without changing base ratings.
+        </AppText>
         {Object.entries(driver.stats).map(([key, value]) => (
-          <AppRow key={key} label={key} detail={`${value}`} />
+          <AppRow
+            key={key}
+            label={key}
+            detail={
+              effectiveStats[key as keyof typeof effectiveStats] === value
+                ? `${value}`
+                : `${value} Base · ${effectiveStats[key as keyof typeof effectiveStats]} Effective`
+            }
+          />
         ))}
       </AppCard>
 

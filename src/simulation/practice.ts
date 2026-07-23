@@ -1,10 +1,8 @@
-import {
-  practiceResolutionTuning as tuning,
-  trackTypeArchetypeFits,
-} from '@/data/practice-config';
+import { getEffectiveDriverStats } from '@/data/archetype-config';
+import { practiceResolutionTuning as tuning } from '@/data/practice-config';
 import { getNextRace, starterGameState } from '@/data/starter-game-state';
 import { getSeededVariance } from '@/simulation/seeded-variance';
-import type { Driver, GameState } from '@/types/game';
+import type { GameState } from '@/types/game';
 import type {
   PracticeChoice,
   PracticeEntryInput,
@@ -18,20 +16,6 @@ const clamp = (value: number, minimum: number, maximum: number) =>
 
 const average = (values: readonly number[]) =>
   values.reduce((total, value) => total + value, 0) / values.length;
-
-function getArchetypeFitBonus(driver: Driver, trackType: PracticeInput['track']['type']) {
-  const fits = trackTypeArchetypeFits[trackType];
-
-  if (fits.includes(driver.archetypes[0])) {
-    return tuning.archetypeFitBonus.primary;
-  }
-
-  if (fits.includes(driver.archetypes[1])) {
-    return tuning.archetypeFitBonus.secondary;
-  }
-
-  return 0;
-}
 
 function getCrewFeedback(setupConfidence: number) {
   if (setupConfidence >= tuning.feedbackThresholds.strong) {
@@ -51,7 +35,8 @@ function formatSessionEffect(label: string, value: number) {
 
 function resolveEntry(input: PracticeInput, entry: PracticeEntryInput): PracticeEntryResult {
   const { driver, vehicle } = entry;
-  const trackStats = input.track.keyStats.map((stat) => driver.stats[stat]);
+  const effectiveStats = getEffectiveDriverStats(driver);
+  const trackStats = input.track.keyStats.map((stat) => effectiveStats[stat]);
   const variance = getSeededVariance(
     `${input.race.id}:${vehicle.id}:${input.selectedChoice.id}`,
     tuning.varianceMaximum,
@@ -63,14 +48,13 @@ function resolveEntry(input: PracticeInput, entry: PracticeEntryInput): Practice
     vehicle.condition * tuning.weights.vehicleCondition +
     input.team.engineeringQuality * tuning.weights.engineeringQuality +
     input.crewChiefQuality * tuning.weights.crewChiefQuality +
-    getArchetypeFitBonus(driver, input.track.type) +
     input.selectedChoice.effects.setupConfidence +
     variance;
   const setupConfidence = Math.round(
     clamp(rawConfidence, tuning.confidenceBounds.minimum, tuning.confidenceBounds.maximum),
   );
   const strongestTrackStat = input.track.keyStats.reduce((strongest, stat) =>
-    driver.stats[stat] > driver.stats[strongest] ? stat : strongest,
+    effectiveStats[stat] > effectiveStats[strongest] ? stat : strongest,
   );
 
   return {
@@ -82,7 +66,7 @@ function resolveEntry(input: PracticeInput, entry: PracticeEntryInput): Practice
     qualifyingPaceBonus: input.selectedChoice.effects.qualifyingPace,
     racePaceBonus: input.selectedChoice.effects.racePace,
     crewFeedback: getCrewFeedback(setupConfidence),
-    insight: `${strongestTrackStat} (${driver.stats[strongestTrackStat]}) was the strongest ${input.track.name}-relevant signal.`,
+    insight: `${strongestTrackStat} (${effectiveStats[strongestTrackStat]} effective) was the strongest ${input.track.name}-relevant signal.`,
     qualifyingEffect: formatSessionEffect(
       'Qualifying preparation',
       input.selectedChoice.effects.qualifyingPace,
