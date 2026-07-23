@@ -8,10 +8,12 @@ import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { raceWeekendCopy } from '@/data/race-weekend-copy';
+import { RACE_READY_THRESHOLD } from '@/data/repair-config';
 import {
   getNextRace,
   getTeamManufacturer,
 } from '@/data/starter-game-state';
+import { getRaceReadinessBlockers } from '@/simulation/vehicle-repair';
 import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
@@ -19,6 +21,7 @@ export function RacePreviewScreen() {
   const { state } = useGameSession();
   const { race, track } = getNextRace(state.game);
   const manufacturer = getTeamManufacturer(state.game);
+  const readinessBlockers = getRaceReadinessBlockers(state.game);
 
   if (!race || !track) {
     return (
@@ -32,9 +35,13 @@ export function RacePreviewScreen() {
     <Screen
       compact
       footer={
-        <Link href="/practice" asChild>
-          <AppButton label={raceWeekendCopy.preview.primaryAction} />
-        </Link>
+        readinessBlockers.length > 0 ? (
+          <AppButton disabled label={raceWeekendCopy.preview.blockedAction} />
+        ) : (
+          <Link href="/practice" asChild>
+            <AppButton label={raceWeekendCopy.preview.primaryAction} />
+          </Link>
+        )
       }>
       <View style={{ gap: theme.spacing.sm }}>
         <AppText variant="eyebrow" tone="accent">
@@ -61,6 +68,60 @@ export function RacePreviewScreen() {
         <AppRow compact label="Caution Risk" detail={track.cautionRisk} />
       </AppCard>
 
+      {readinessBlockers.length > 0 ? (
+        <AppCard
+          style={{
+            borderColor: theme.colors.trackRed,
+            backgroundColor: theme.colors.panelStrong,
+            padding: theme.spacing.md,
+          }}>
+          <View
+            style={{
+              alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: theme.spacing.md,
+            }}>
+            <AppText variant="title">{raceWeekendCopy.preview.readinessHoldTitle}</AppText>
+            <StatusBadge label="Needs Work" tone="red" />
+          </View>
+          <AppText tone="muted">
+            {raceWeekendCopy.preview.readinessHoldBody}
+          </AppText>
+          {readinessBlockers.map((vehicle) => (
+            <Link
+              key={vehicle.id}
+              href={{
+                pathname: '/vehicles/[number]',
+                params: { number: vehicle.number },
+              }}
+              asChild>
+              <AppButton
+                label={`Repair Car #${vehicle.number}`}
+                variant="secondary"
+              />
+            </Link>
+          ))}
+        </AppCard>
+      ) : (
+        <AppCard
+          style={{ borderColor: theme.colors.victory, padding: theme.spacing.md }}>
+          <View
+            style={{
+              alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: theme.spacing.md,
+            }}>
+            <AppText variant="title">Clear for the Weekend</AppText>
+            <StatusBadge label="Race Ready" tone="green" />
+          </View>
+          <AppText tone="muted">
+            Both entries have cleared the locked {RACE_READY_THRESHOLD}% condition line.
+          </AppText>
+        </AppCard>
+      )}
+
       <AppCard style={{ padding: theme.spacing.md }}>
         <AppText variant="title">Key Driver Stats</AppText>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.sm }}>
@@ -82,8 +143,8 @@ export function RacePreviewScreen() {
           <AppRow
             compact
             key={vehicle.id}
-            label={`Car #${vehicle.number}`}
-            detail={`${vehicle.condition}% · PERF ${vehicle.performance}`}
+            label={`Car #${vehicle.number} · ${vehicle.readiness}`}
+            detail={`${vehicle.condition}% · ${vehicle.damage}% damage`}
           />
         ))}
       </AppCard>

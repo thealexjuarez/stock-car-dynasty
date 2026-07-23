@@ -56,17 +56,34 @@ export function TeamScreen() {
       </View>
 
       <View style={{ gap: theme.spacing.md }}>
-        <SectionHeader title="Vehicles" subtitle="Car-specific condition and wear; upgrades apply evenly" />
+        <SectionHeader
+          title="Vehicles"
+          subtitle="Race readiness, condition, and car-specific shop work"
+        />
         {vehicles.map((vehicle) => (
           <AppCard key={vehicle.id}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md }}>
               <AppText variant="title">Car #{vehicle.number}</AppText>
-              <StatusBadge label={`${vehicle.condition}% condition`} tone={vehicle.condition >= 90 ? 'green' : 'yellow'} />
+              <StatusBadge
+                label={vehicle.readiness}
+                tone={
+                  vehicle.readiness === 'Ready'
+                    ? 'green'
+                    : vehicle.readiness === 'At Risk'
+                      ? 'yellow'
+                      : 'red'
+                }
+              />
             </View>
+            <AppRow label="Condition" detail={`${vehicle.condition}%`} />
+            <AppRow label="Damage" detail={`${vehicle.damage}%`} />
             <AppRow label="Performance" detail={`${vehicle.performance}`} />
             <AppRow label="Assigned Driver" detail={drivers.find((driver) => driver.id === vehicle.assignedDriverId)?.name} />
             <Link href={{ pathname: '/vehicles/[number]', params: { number: vehicle.number } }} asChild>
-              <AppButton label={`Open Car #${vehicle.number}`} variant="secondary" />
+              <AppButton
+                label={vehicle.damage > 0 ? 'Open Repair Bay' : `Open Car #${vehicle.number}`}
+                variant="secondary"
+              />
             </Link>
           </AppCard>
         ))}

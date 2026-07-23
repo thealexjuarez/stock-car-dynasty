@@ -1,4 +1,5 @@
 import { getPracticeChoice } from '@/data/practice-config';
+import { RACE_READY_THRESHOLD } from '@/data/repair-config';
 import { getWeekendEntrants } from '@/data/race-presentation-data';
 import { getNextRace, starterGameState } from '@/data/starter-game-state';
 import { createPracticeInput, resolvePractice } from '@/simulation/practice';
@@ -7,6 +8,10 @@ import {
   resolveQualifying,
   resolveRace,
 } from '@/simulation/race-weekend';
+import {
+  applyVehicleRepair,
+  getRaceReadinessBlockers,
+} from '@/simulation/vehicle-repair';
 import type { GameState } from '@/types/game';
 import type {
   GameSessionAction,
@@ -51,7 +56,7 @@ export function createInitialGameSessionState(
   gameState: GameState = starterGameState,
 ): GameSessionState {
   const game = cloneGameState(gameState);
-  return { game, weekend: createWeekend(game) };
+  return { game, weekend: createWeekend(game), processedRepairActionIds: [] };
 }
 
 export function gameSessionReducer(
@@ -60,6 +65,13 @@ export function gameSessionReducer(
 ): GameSessionState {
   switch (action.type) {
     case 'COMPLETE_PRACTICE': {
+      const blockers = getRaceReadinessBlockers(state.game);
+      if (blockers.length > 0) {
+        const cars = blockers.map((vehicle) => `Car #${vehicle.number}`).join(' and ');
+        throw new Error(
+          `Weekend entry on hold: ${cars} must reach ${RACE_READY_THRESHOLD}% condition before practice.`,
+        );
+      }
       const input = createPracticeInput(getPracticeChoice(action.choiceId), state.game);
       if (!input) throw new Error('Practice input is unavailable');
       return {
@@ -117,7 +129,24 @@ export function gameSessionReducer(
         throw new Error('Results must be reviewed before advancing');
       }
       const game = applyRaceSettlement(state.game, state.weekend.race);
-      return { game, weekend: createWeekend(game) };
+      return { ...state, game, weekend: createWeekend(game) };
+    }
+    case 'REPAIR_VEHICLE': {
+      if (state.processedRepairActionIds.includes(action.actionId)) {
+        return state;
+      }
+      const game = applyVehicleRepair(state.game, {
+        vehicleId: action.vehicleId,
+        optionId: action.optionId,
+      });
+      return {
+        ...state,
+        game,
+        processedRepairActionIds: [
+          ...state.processedRepairActionIds,
+          action.actionId,
+        ],
+      };
     }
   }
 }

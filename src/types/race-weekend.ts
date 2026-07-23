@@ -1,4 +1,4 @@
-import type { GameState } from '@/types/game';
+import type { GameState, RepairOptionId } from '@/types/game';
 import type { PracticeChoiceId, PracticeResult } from '@/types/practice';
 
 export type RaceWeekendPhase =
@@ -63,6 +63,7 @@ export type RaceWeekendState = {
 export type GameSessionState = {
   game: GameState;
   weekend: RaceWeekendState;
+  processedRepairActionIds: string[];
 };
 
 export type GameSessionAction =
@@ -71,4 +72,10 @@ export type GameSessionAction =
   | { type: 'SHOW_GRID' }
   | { type: 'BEGIN_RACE' }
   | { type: 'SHOW_RESULTS' }
-  | { type: 'ADVANCE_EVENT' };
+  | { type: 'ADVANCE_EVENT' }
+  | {
+      type: 'REPAIR_VEHICLE';
+      actionId: string;
+      vehicleId: string;
+      optionId: RepairOptionId;
+    };

@@ -1,6 +1,8 @@
 export type DriverMorale = 'Happy' | 'Neutral' | 'Concerned';
 export type DriverConfidence = 'Steady' | 'Shaken' | 'Hot';
 export type DriverFatigue = 'Fresh' | 'Tired' | 'Worn';
+export type VehicleReadiness = 'Ready' | 'At Risk' | 'Not Ready';
+export type RepairOptionId = 'quick-fix' | 'standard-repair' | 'full-rebuild';
 export type TrackType = 'Short Track' | 'Intermediate' | 'Superspeedway' | 'Road Course' | 'Long Oval';
 export type DriverStat = 'Speed' | 'Cornering' | 'Braking' | 'Throttle Control' | 'Racecraft' | 'Qualifying' | 'Restarts' | 'Tire Management' | 'Consistency' | 'Awareness';
 
@@ -16,7 +18,8 @@ export type Driver = {
   developmentTrend: string; growthModifiers: string[]; active: boolean;
 };
 export type Vehicle = {
-  id: string; number: string; assignedDriverId: string; condition: number; performance: number;
+  id: string; number: string; assignedDriverId: string; condition: number; damage: number;
+  readiness: VehicleReadiness; performance: number;
   chassisWear: string; engineWear: string; note: string; active: boolean;
 };
 export type StaffMember = { id: string; name: string; role: string; quality: number; trait: string; salary: number; effect: string; active: boolean };

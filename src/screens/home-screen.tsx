@@ -8,11 +8,13 @@ import { AppText } from '@/components/shared/app-text';
 import { Screen } from '@/components/shared/screen';
 import { SectionHeader } from '@/components/shared/section-header';
 import { StatusBadge } from '@/components/shared/status-badge';
+import { RACE_READY_THRESHOLD } from '@/data/repair-config';
 import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import {
   getNextRace,
   getTeamManufacturer,
 } from '@/data/starter-game-state';
+import { getRaceReadinessBlockers } from '@/simulation/vehicle-repair';
 import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
@@ -27,6 +29,10 @@ export function HomeScreen() {
   const state = session.game;
   const { race, track } = getNextRace(state);
   const manufacturer = getTeamManufacturer(state);
+  const readinessBlockers = getRaceReadinessBlockers(state);
+  const repairCandidates = state.vehicles.filter(
+    (vehicle) => vehicle.active && vehicle.damage > 0,
+  ).sort((left, right) => left.condition - right.condition);
 
   return (
     <Screen>
@@ -46,6 +52,63 @@ export function HomeScreen() {
         <Hud label="Date" value={state.currentDate} />
       </View>
 
+      {repairCandidates.length > 0 ? (
+        <AppCard
+          style={{
+            borderColor:
+              readinessBlockers.length > 0
+                ? theme.colors.trackRed
+                : theme.colors.caution,
+            backgroundColor: theme.colors.panelStrong,
+          }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: theme.spacing.md,
+            }}>
+            <View style={{ flex: 1, gap: theme.spacing.xs }}>
+              <AppText variant="eyebrow" tone="accent">Repair Bay</AppText>
+              <AppText variant="title">
+                {readinessBlockers.length > 0
+                  ? 'Weekend Entry on Hold'
+                  : 'Post-Race Inspection'}
+              </AppText>
+            </View>
+            <StatusBadge
+              label={readinessBlockers.length > 0 ? 'Needs Work' : 'Race Ready'}
+              tone={readinessBlockers.length > 0 ? 'red' : 'yellow'}
+            />
+          </View>
+          <AppText tone="muted">
+            {readinessBlockers.length > 0
+              ? `Both entries must reach ${RACE_READY_THRESHOLD}% condition before the team can roll into the next weekend.`
+              : 'The cars are clear to race, but fresh damage is waiting for a shop decision.'}
+          </AppText>
+          {state.vehicles.filter((vehicle) => vehicle.active).map((vehicle) => (
+            <AppRow
+              key={vehicle.id}
+              label={`Car #${vehicle.number} · ${vehicle.readiness}`}
+              detail={`${vehicle.condition}% · ${vehicle.damage}% damage`}
+            />
+          ))}
+          <Link
+            href={{
+              pathname: '/vehicles/[number]',
+              params: {
+                number: (readinessBlockers[0] ?? repairCandidates[0]).number,
+              },
+            }}
+            asChild>
+            <AppButton
+              label={
+                readinessBlockers.length > 0 ? 'Repair Cars to Race' : 'Open Repair Bay'
+              }
+            />
+          </Link>
+        </AppCard>
+      ) : null}
+
       <AppCard style={{ borderColor: theme.colors.trackRed, backgroundColor: theme.colors.panelStrong }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md }}>
           <View style={{ flex: 1, gap: theme.spacing.xs }}>
@@ -62,9 +125,19 @@ export function HomeScreen() {
           The next ERCA weekend is at {track?.name}, a {track?.type.toLowerCase()} where the
           track-specific driver ratings and car preparation will shape the result.
         </AppText>
-        <Link href="/race-preview" asChild>
-          <AppButton label={raceWeekendCopy.home.openWeekend} />
-        </Link>
+        {readinessBlockers.length > 0 ? (
+          <>
+            <AppText tone="muted">
+              Race control will not accept the entry until both cars clear the{' '}
+              {RACE_READY_THRESHOLD}% line.
+            </AppText>
+            <AppButton disabled label="Clear Both Cars First" />
+          </>
+        ) : (
+          <Link href="/race-preview" asChild>
+            <AppButton label={raceWeekendCopy.home.openWeekend} />
+          </Link>
+        )}
       </AppCard>
 
       <SectionHeader title="Drivers" subtitle="Active lineup and development outlook" />
@@ -90,8 +163,19 @@ export function HomeScreen() {
         <AppCard key={vehicle.id}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: theme.spacing.md }}>
             <AppText variant="title">Car #{vehicle.number}</AppText>
-            <StatusBadge label={`${vehicle.condition}%`} tone={vehicle.condition >= 90 ? 'green' : 'yellow'} />
+            <StatusBadge
+              label={vehicle.readiness}
+              tone={
+                vehicle.readiness === 'Ready'
+                  ? 'green'
+                  : vehicle.readiness === 'At Risk'
+                    ? 'yellow'
+                    : 'red'
+              }
+            />
           </View>
+          <AppRow label="Condition" detail={`${vehicle.condition}%`} />
+          <AppRow label="Damage" detail={`${vehicle.damage}%`} />
           <AppRow label="Performance" detail={`${vehicle.performance}`} />
           <AppRow label="Wear" detail={`${vehicle.chassisWear} chassis / ${vehicle.engineWear} engine`} />
           <Link href={{ pathname: '/vehicles/[number]', params: { number: vehicle.number } }} asChild>
