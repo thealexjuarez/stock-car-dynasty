@@ -23,6 +23,7 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
   const { state, showGrid, showResults } = useGameSession();
   const { height, width } = useWindowDimensions();
   const compact = width < 430 || height < 760;
+  const compactDriverCards = height < 760;
   const timingWidth = Math.max(104, Math.min(122, width * 0.31));
   const trackHeight = Math.max(210, Math.min(270, height * 0.34));
   const framePadding = compact ? 6 : 8;
@@ -141,28 +142,35 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
           />
         </View>
 
-        <SessionStatusStrip
-          config={config}
-          currentLap={model.currentLap}
-          trackName={track.name}
-        />
+        <View
+          style={{
+            flex: 1,
+            gap: 6,
+            justifyContent: 'space-between',
+            minHeight: 0,
+          }}>
+          <SessionStatusStrip
+            config={config}
+            currentLap={model.currentLap}
+            trackName={track.name}
+          />
 
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          {playerEntries.map((entry) => {
-            const driverId = entry.playerDriverId!;
-            const runningEntry = model.runningOrder.find((item) => item.id === entry.id);
+          <View style={{ gap: 6 }}>
+            {playerEntries.map((entry) => {
+              const driverId = entry.playerDriverId!;
+              const runningEntry = model.runningOrder.find((item) => item.id === entry.id);
 
-            if (!runningEntry) {
-              throw new Error(`Missing running-order entry for Car #${entry.carNumber}`);
-            }
+              if (!runningEntry) {
+                throw new Error(`Missing running-order entry for Car #${entry.carNumber}`);
+              }
 
-            return (
-              <View key={entry.id} style={{ flex: 1, minWidth: 0 }}>
+              return (
                 <DriverSessionCard
                   activeCamera={driverId === focusedDriverId}
-                  compact
+                  compact={compactDriverCards}
                   currentLap={model.currentLap}
                   entry={entry}
+                  key={entry.id}
                   onSelectCamera={() => setFocusedDriverId(driverId)}
                   onSelectMode={(mode) => setPaceMode(driverId, mode)}
                   runningEntry={runningEntry}
@@ -171,23 +179,23 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
                   showPaceControls={kind === 'race'}
                   totalLaps={config.totalLaps}
                 />
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
 
-        <SessionControlBar
-          isComplete={model.isComplete}
-          isPaused={isPaused}
-          kind={kind}
-          onSetPaused={setIsPaused}
-          onSetPlaybackSpeed={setPlaybackSpeed}
-          onContinue={continueSession}
-          playbackSpeed={playbackSpeed}
-          progress={model.sessionProgress}
-          progressLabel={progressLabel}
-          statusMessage={statusMessage}
-        />
+          <SessionControlBar
+            isComplete={model.isComplete}
+            isPaused={isPaused}
+            kind={kind}
+            onSetPaused={setIsPaused}
+            onSetPlaybackSpeed={setPlaybackSpeed}
+            onContinue={continueSession}
+            playbackSpeed={playbackSpeed}
+            progress={model.sessionProgress}
+            progressLabel={progressLabel}
+            statusMessage={statusMessage}
+          />
+        </View>
       </View>
     </SafeAreaView>
   );
