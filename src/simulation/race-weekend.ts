@@ -1,7 +1,8 @@
 import { raceWeekendTuning as tuning } from '@/data/race-weekend-config';
 import { getNextRace } from '@/data/starter-game-state';
 import { getSeededUnit, getSeededVariance } from '@/simulation/seeded-variance';
-import type { Driver, GameState, Track, Vehicle } from '@/types/game';
+import { updateVehicleCondition } from '@/simulation/vehicle-repair';
+import type { Driver, GameState, Track } from '@/types/game';
 import type { PracticeResult } from '@/types/practice';
 import type {
   QualifyingEntryResult,
@@ -165,12 +166,6 @@ export function resolveRace(
   };
 }
 
-function getWearLabel(condition: number): Vehicle['chassisWear'] {
-  if (condition >= 90) return 'Light';
-  if (condition >= 75) return 'Moderate';
-  return 'Heavy';
-}
-
 function addDays(date: string, days: number) {
   const parsed = new Date(`${date} 00:00:00 UTC`);
   parsed.setUTCDate(parsed.getUTCDate() + days);
@@ -207,15 +202,13 @@ export function applyRaceSettlement(state: GameState, result: RaceResult): GameS
       const entry = result.entries.find((item) => item.vehicleId === vehicle.id);
       if (!entry) return vehicle;
       const condition = Math.max(0, vehicle.condition - entry.conditionLoss);
-      return {
-        ...vehicle,
+      return updateVehicleCondition(
+        vehicle,
         condition,
-        chassisWear: getWearLabel(condition),
-        note:
-          entry.conditionLoss > 0
-            ? `${entry.conditionLoss}% condition lost at ${state.calendar[currentIndex].name}.`
-            : 'Completed the event without measurable damage.',
-      };
+        entry.conditionLoss > 0
+          ? `${entry.conditionLoss}% condition lost at ${state.calendar[currentIndex].name}.`
+          : 'Completed the event without measurable damage.',
+      );
     }),
   };
 }

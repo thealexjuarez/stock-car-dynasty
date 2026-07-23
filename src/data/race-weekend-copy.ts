@@ -1,3 +1,5 @@
+import { RACE_READY_THRESHOLD } from '@/data/repair-config';
+
 export const raceWeekendCopy = {
   home: {
     nextAction: 'Next Recommended Action',
@@ -9,6 +11,10 @@ export const raceWeekendCopy = {
     title: 'Race Weekend',
     garageTitle: 'Garage Readiness',
     primaryAction: 'Build Practice Plan',
+    blockedAction: 'Cars Not Ready',
+    readinessHoldTitle: 'Weekend Entry on Hold',
+    readinessHoldBody:
+      `Race control requires both entries at ${RACE_READY_THRESHOLD}% condition. Repair every listed car before opening practice.`,
   },
   practice: {
     eyebrow: 'Practice Plan',

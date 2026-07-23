@@ -5,8 +5,14 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import { tabs } from '@/data/app-shell';
+import {
+  PROVISIONAL_AVERAGE_WEEKLY_EARNINGS,
+  repairOptions,
+} from '@/data/repair-config';
 import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { postSettlementFlow } from '@/data/race-weekend-navigation';
+import { starterGameState } from '@/data/starter-game-state';
+import { updateVehicleCondition } from '@/simulation/vehicle-repair';
 import {
   createInitialGameSessionState,
   gameSessionReducer,
@@ -23,6 +29,15 @@ function runCompletedWeekend() {
   state = gameSessionReducer(state, { type: 'BEGIN_RACE' });
   state = gameSessionReducer(state, { type: 'SHOW_RESULTS' });
   return state;
+}
+
+function createSessionWithConditions(conditions: readonly [number, number]) {
+  return createInitialGameSessionState({
+    ...starterGameState,
+    vehicles: starterGameState.vehicles.map((vehicle, index) =>
+      updateVehicleCondition(vehicle, conditions[index], 'Regression test fixture.'),
+    ),
+  });
 }
 
 test('the same event seed produces identical qualifying and race outcomes', () => {
@@ -86,14 +101,18 @@ test('settlement posts once and leaves the next weekend ready at Home', () => {
   assert.ok(tabs.some((tab) => tab.key === postSettlementFlow.tab));
 
   for (const entry of race.entries.filter((item) => item.isPlayerTeam)) {
+    const expectedCondition =
+      conditionBefore.get(entry.vehicleId!)! - entry.conditionLoss;
+    const settledVehicle = advanced.game.vehicles.find(
+      (vehicle) => vehicle.id === entry.vehicleId,
+    );
     assert.equal(
       advanced.game.drivers.find((driver) => driver.id === entry.driverId)?.exp,
       expBefore.get(entry.driverId!)! + entry.exp,
     );
-    assert.equal(
-      advanced.game.vehicles.find((vehicle) => vehicle.id === entry.vehicleId)?.condition,
-      conditionBefore.get(entry.vehicleId!)! - entry.conditionLoss,
-    );
+    assert.equal(settledVehicle?.condition, expectedCondition);
+    assert.equal(settledVehicle?.damage, 100 - expectedCondition);
+    assert.notEqual(settledVehicle?.readiness, undefined);
   }
 
   assert.throws(
@@ -129,4 +148,110 @@ test('race-weekend progression uses the revised player-facing labels', () => {
   ]) {
     assert.equal(allCopy.includes(retiredLabel), false);
   }
+});
+
+test('repair costs deduct exactly once when the same action is replayed', () => {
+  const initial = createInitialGameSessionState();
+  const vehicle = initial.game.vehicles[0];
+  const cashBefore = initial.game.team.cash;
+  const action = {
+    type: 'REPAIR_VEHICLE',
+    actionId: 'repair-once',
+    vehicleId: vehicle.id,
+    optionId: 'standard-repair',
+  } as const;
+
+  const repaired = gameSessionReducer(initial, action);
+  const replayed = gameSessionReducer(repaired, action);
+
+  assert.equal(repaired.game.team.cash, cashBefore - 3_500);
+  assert.equal(repaired.processedRepairActionIds.length, 1);
+  assert.strictEqual(replayed, repaired);
+});
+
+test('repair restoration updates condition, damage, and readiness together', () => {
+  const initial = createSessionWithConditions([72, 86]);
+  const repaired = gameSessionReducer(initial, {
+    type: 'REPAIR_VEHICLE',
+    actionId: 'quick-fix-72',
+    vehicleId: 'vehicle-45',
+    optionId: 'quick-fix',
+  });
+  const vehicle = repaired.game.vehicles.find((item) => item.id === 'vehicle-45');
+
+  assert.equal(vehicle?.condition, 77);
+  assert.equal(vehicle?.damage, 23);
+  assert.equal(vehicle?.readiness, 'At Risk');
+});
+
+test('a repair cannot drive team cash below zero', () => {
+  const initial = createInitialGameSessionState({
+    ...starterGameState,
+    team: { ...starterGameState.team, cash: 1_999 },
+  });
+
+  assert.throws(
+    () =>
+      gameSessionReducer(initial, {
+        type: 'REPAIR_VEHICLE',
+        actionId: 'unaffordable-repair',
+        vehicleId: 'vehicle-45',
+        optionId: 'quick-fix',
+      }),
+    /Insufficient cash/,
+  );
+  assert.equal(initial.game.team.cash, 1_999);
+  assert.equal(initial.processedRepairActionIds.length, 0);
+});
+
+test('a car below the locked 75% line blocks the next weekend', () => {
+  const initial = createSessionWithConditions([74, 75]);
+
+  assert.throws(
+    () =>
+      gameSessionReducer(initial, {
+        type: 'COMPLETE_PRACTICE',
+        choiceId: 'long-run-balance',
+      }),
+    /Car #45.*75% condition/,
+  );
+  assert.equal(initial.weekend.phase, 'preview');
+});
+
+test('both race entries at or above 75% allow normal progression', () => {
+  const initial = createSessionWithConditions([75, 75]);
+  const progressed = gameSessionReducer(initial, {
+    type: 'COMPLETE_PRACTICE',
+    choiceId: 'long-run-balance',
+  });
+
+  assert.equal(progressed.weekend.phase, 'practice-result');
+  assert.equal(progressed.weekend.raceId, initial.weekend.raceId);
+  assert.ok(progressed.weekend.practice);
+});
+
+test('repairs preserve race-weekend and post-settlement navigation state', () => {
+  const initial = createSessionWithConditions([70, 86]);
+  const weekendBefore = initial.weekend;
+  const repaired = gameSessionReducer(initial, {
+    type: 'REPAIR_VEHICLE',
+    actionId: 'preserve-weekend',
+    vehicleId: 'vehicle-45',
+    optionId: 'standard-repair',
+  });
+
+  assert.strictEqual(repaired.weekend, weekendBefore);
+  assert.equal(repaired.game.nextRaceId, initial.game.nextRaceId);
+  assert.equal(postSettlementFlow.route, '/home');
+  assert.equal(postSettlementFlow.nextWeekendStartsAutomatically, false);
+});
+
+test('the provisional normal repair remains inside the weekly earnings target', () => {
+  const standardRepair = repairOptions.find(
+    (option) => option.id === 'standard-repair',
+  )!;
+  const share = standardRepair.cost / PROVISIONAL_AVERAGE_WEEKLY_EARNINGS;
+
+  assert.ok(share >= 0.15);
+  assert.ok(share <= 0.2);
 });

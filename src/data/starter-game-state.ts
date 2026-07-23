@@ -50,8 +50,8 @@ export const starterGameState: GameState = {
   drivers:starterDrivers,
   // Locked by the vNext Bible's Apex Motorsports Starting Cars table.
   vehicles:[
-    { id:'vehicle-45', number:'45', assignedDriverId:'driver-cole-mercer', condition:91, performance:55, chassisWear:'Light', engineWear:'Light', note:'Stable baseline entry.', active:true },
-    { id:'vehicle-46', number:'46', assignedDriverId:'driver-aiden-voss', condition:86, performance:52, chassisWear:'Moderate', engineWear:'Light', note:'Slightly more worn; monitor damage stacking.', active:true },
+    { id:'vehicle-45', number:'45', assignedDriverId:'driver-cole-mercer', condition:91, damage:9, readiness:'Ready', performance:55, chassisWear:'Light', engineWear:'Light', note:'Stable baseline entry.', active:true },
+    { id:'vehicle-46', number:'46', assignedDriverId:'driver-aiden-voss', condition:86, damage:14, readiness:'Ready', performance:52, chassisWear:'Moderate', engineWear:'Light', note:'Slightly more worn; monitor damage stacking.', active:true },
   ],
   staff:[
     { id:'staff-ray-hollis',name:'Ray Hollis',role:'Crew Chief',quality:51,trait:'Development-Minded',salary:38000,effect:'+10% development recruiting actions; young driver growth; average race strategy.',active:true },
