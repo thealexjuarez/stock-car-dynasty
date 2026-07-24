@@ -10,6 +10,7 @@ export type RecruitingActionId =
   | 'text-dm'
   | 'social-follow'
   | 'scout-report'
+  | 'film-review'
   | 'crew-chief-call'
   | 'watch-race-tape'
   | 'driver-highlight'
@@ -108,7 +109,7 @@ export type RecruitingActionDefinition = {
   category: RecruitingCategory;
   prerequisites: RecruitingPrerequisites;
   repeatable: boolean;
-  maximumLifetimeUses: number;
+  maximumLifetimeUses: number | null;
   oncePerWeekend: boolean;
   effects: {
     scouting: number;

@@ -4,28 +4,31 @@ import type {
 } from '@/types/recruiting';
 
 export type RecruitingActionGroup =
-  | 'Scouting'
-  | 'Direct Contact'
-  | 'Social'
+  | 'All'
+  | 'Scout'
+  | 'Recruit'
   | 'Relationship'
-  | 'Evaluation'
-  | 'Offer Preparation';
+  | 'Offer';
 
 export const recruitingActionCopy: Record<
   RecruitingActionId,
-  { purpose: string; group: RecruitingActionGroup }
+  { purpose: string; group: Exclude<RecruitingActionGroup, 'All'> }
 > = {
   'text-dm': {
     purpose: 'Open a direct line and show genuine early interest.',
-    group: 'Direct Contact',
+    group: 'Recruit',
   },
   'social-follow': {
     purpose: 'Have Ava Larkin put Apex on the driver’s radar with a light social touch.',
-    group: 'Social',
+    group: 'Recruit',
   },
   'scout-report': {
     purpose: 'Learn the basics of the driver’s pace, background, and outlook.',
-    group: 'Scouting',
+    group: 'Scout',
+  },
+  'film-review': {
+    purpose: 'Review more race footage to keep building the scouting report.',
+    group: 'Scout',
   },
   'crew-chief-call': {
     purpose: 'Let Ray Hollis explain how this driver could fit the race team.',
@@ -33,35 +36,35 @@ export const recruitingActionCopy: Record<
   },
   'watch-race-tape': {
     purpose: 'Study the driver’s habits and add detail to the evaluation.',
-    group: 'Evaluation',
+    group: 'Scout',
   },
   'driver-highlight': {
     purpose: 'Give the driver a public spotlight and build prospect engagement.',
-    group: 'Social',
+    group: 'Recruit',
   },
   'owner-call': {
     purpose: 'Show that Apex leadership is serious about the relationship.',
-    group: 'Direct Contact',
+    group: 'Recruit',
   },
   'background-check': {
     purpose: 'Check the off-track fit and surface possible concerns.',
-    group: 'Scouting',
+    group: 'Scout',
   },
   'behind-scenes-feature': {
     purpose: 'Bring the driver into the Apex story with a shop-focused feature.',
-    group: 'Social',
+    group: 'Recruit',
   },
   'sponsor-research': {
     purpose: 'Learn whether personal backing or sponsor obligations may follow.',
-    group: 'Scouting',
+    group: 'Scout',
   },
   'pitch-seat': {
     purpose: 'Explain the Reserve / Development seat and the path attached to it.',
-    group: 'Offer Preparation',
+    group: 'Offer',
   },
   'fan-poll': {
     purpose: 'Build public support around the prospect without making a promise.',
-    group: 'Social',
+    group: 'Recruit',
   },
   'pitch-stability': {
     purpose: 'Sell the value of a steady team and a clear long-term direction.',
@@ -73,7 +76,7 @@ export const recruitingActionCopy: Record<
   },
   'pitch-development': {
     purpose: 'Outline a practical development plan with coaching and reviews.',
-    group: 'Offer Preparation',
+    group: 'Offer',
   },
   'sponsor-intro': {
     purpose: 'Connect the prospect with an active Apex partner.',
@@ -81,60 +84,71 @@ export const recruitingActionCopy: Record<
   },
   'film-session': {
     purpose: 'Review race decisions together and sharpen the evaluation.',
-    group: 'Evaluation',
+    group: 'Scout',
   },
   'pitch-growth': {
     purpose: 'Show how Apex plans to become more competitive with the driver.',
-    group: 'Offer Preparation',
+    group: 'Offer',
   },
   'spotlight-video': {
     purpose: 'Produce a focused driver story that raises engagement and visibility.',
-    group: 'Social',
+    group: 'Recruit',
   },
   'sponsor-feature': {
     purpose: 'Pair the prospect with a sponsor-backed feature and deepen alignment.',
-    group: 'Social',
+    group: 'Relationship',
   },
   'race-weekend-visit': {
     purpose: 'Let the prospect see the team operate under race-weekend pressure.',
-    group: 'Evaluation',
+    group: 'Relationship',
   },
   'sim-session': {
     purpose: 'Evaluate feedback and decision-making in a controlled session.',
-    group: 'Evaluation',
+    group: 'Scout',
   },
   'manufacturer-pitch': {
     purpose: 'Explain how the Chevrolat relationship supports the driver’s path.',
-    group: 'Offer Preparation',
+    group: 'Offer',
   },
   'full-development-plan': {
     purpose: 'Make the complete coaching, review, and investment commitment.',
-    group: 'Offer Preparation',
+    group: 'Offer',
   },
   'private-test-day': {
     purpose: 'Run the deepest pre-signing evaluation at meaningful RP and cash cost.',
-    group: 'Evaluation',
+    group: 'Scout',
   },
   'contract-offer': {
     purpose: 'Sign the driver now once every visible requirement is satisfied.',
-    group: 'Offer Preparation',
+    group: 'Offer',
   },
 };
 
 export const recruitingActionGroups: RecruitingActionGroup[] = [
-  'Scouting',
-  'Direct Contact',
-  'Social',
+  'All',
+  'Scout',
+  'Recruit',
   'Relationship',
-  'Evaluation',
-  'Offer Preparation',
+  'Offer',
 ];
 
-export function getRecruitingActionGroup(category: RecruitingCategory) {
-  if (category === 'Scouting') return 'Scouting';
-  if (category === 'Direct Contact') return 'Direct Contact';
-  if (category === 'Social' || category === 'Social / Sponsor') return 'Social';
-  if (category === 'Relationship' || category === 'Visit') return 'Relationship';
-  if (category === 'Evaluation' || category === 'Evaluation / Visit') return 'Evaluation';
-  return 'Offer Preparation';
+export function getRecruitingActionGroup(
+  category: RecruitingCategory,
+): Exclude<RecruitingActionGroup, 'All'> {
+  if (
+    category === 'Scouting' ||
+    category === 'Evaluation' ||
+    category === 'Evaluation / Visit'
+  ) {
+    return 'Scout';
+  }
+  if (category === 'Direct Contact' || category === 'Social') return 'Recruit';
+  if (
+    category === 'Relationship' ||
+    category === 'Visit' ||
+    category === 'Social / Sponsor'
+  ) {
+    return 'Relationship';
+  }
+  return 'Offer';
 }

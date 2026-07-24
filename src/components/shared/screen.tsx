@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { ScrollView, View, type ScrollViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,12 +7,14 @@ import { theme } from '@/theme';
 type ScreenProps = ScrollViewProps & {
   children: ReactNode;
   compact?: boolean;
+  contentRef?: Ref<ScrollView>;
   footer?: ReactNode;
 };
 
 export function Screen({
   children,
   compact = false,
+  contentRef,
   contentContainerStyle,
   footer,
   style,
@@ -24,6 +26,7 @@ export function Screen({
     <View style={[{ backgroundColor: theme.colors.asphalt, flex: 1 }, style]}>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
+        ref={contentRef}
         style={{ flex: 1 }}
         contentContainerStyle={[
           {

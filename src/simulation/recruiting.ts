@@ -1,4 +1,5 @@
 import {
+  filmReviewScoutingGains,
   getRecruitingAction,
   qualifyingRelationshipPaths,
   recruitingActions,
@@ -85,9 +86,32 @@ export function getScoutingBand(confidence: number) {
 
 export type ActionAvailability = {
   available: boolean;
+  blockers: RecruitingActionBlocker[];
+  completed: boolean;
+  primaryReason: string | null;
   reasons: string[];
   uses: number;
-  usesRemaining: number;
+  usesRemaining: number | null;
+};
+
+export type RecruitingActionBlockerCode =
+  | 'prospect-status'
+  | 'weekly-limit'
+  | 'used-this-week'
+  | 'lifetime-limit'
+  | 'resources'
+  | 'scouting'
+  | 'interest'
+  | 'pathway'
+  | 'engagement'
+  | 'recruiting-rank'
+  | 'contract-roster';
+
+export type RecruitingActionBlocker = {
+  code: RecruitingActionBlockerCode;
+  detail: string;
+  priority: number;
+  reason: string;
 };
 
 export function getActionAvailability(
@@ -98,94 +122,223 @@ export function getActionAvailability(
   const { progress } = getProspectParts(state, prospectId);
   const definition = getRecruitingAction(actionId);
   const uses = progress.completedActionUses[actionId] ?? 0;
-  const weeklyReasons: string[] = [];
-  const resourceReasons: string[] = [];
-  const lifetimeReasons: string[] = [];
-  const usedReasons: string[] = [];
-  const prerequisiteReasons: string[] = [];
-  const statusReasons: string[] = [];
+  const blockers: RecruitingActionBlocker[] = [];
+  let blockerSequence = 0;
+  const addBlocker = (
+    code: RecruitingActionBlockerCode,
+    priority: number,
+    reason: string,
+    detail = reason,
+  ) => {
+    blockers.push({
+      code,
+      detail,
+      priority: priority * 100 + blockerSequence,
+      reason,
+    });
+    blockerSequence += 1;
+  };
+
+  if (progress.signed) {
+    addBlocker(
+      'prospect-status',
+      1,
+      'Prospect already signed with Apex',
+      'This prospect is already signed to the Apex development roster.',
+    );
+  }
+  if (progress.signedByTeamId) {
+    const teamName =
+      state.raceField.organizations.find(
+        (organization) => organization.id === progress.signedByTeamId,
+      )?.name ?? 'another team';
+    addBlocker(
+      'prospect-status',
+      1,
+      `Prospect signed with ${teamName}`,
+      `This prospect is no longer available after signing with ${teamName}.`,
+    );
+  }
 
   if (progress.weeklyActionCount >= recruitingTuning.maximumActionsPerProspectPerWeekend) {
-    weeklyReasons.push('Three-action weekend limit reached');
+    addBlocker(
+      'weekly-limit',
+      2,
+      'Weekly action limit reached',
+      'Available after one more week; all three recruiting moves for this prospect are spent.',
+    );
+  }
+  if (definition.oncePerWeekend && progress.actionsUsedThisWeekend.includes(actionId)) {
+    addBlocker(
+      'used-this-week',
+      3,
+      'Weekly use already spent',
+      'Available after one more week; this action may be used once per prospect per week.',
+    );
+  }
+  if (
+    definition.maximumLifetimeUses !== null &&
+    uses >= definition.maximumLifetimeUses
+  ) {
+    addBlocker(
+      'lifetime-limit',
+      4,
+      definition.repeatable
+        ? 'Lifetime uses exhausted'
+        : 'One-time action already completed',
+      definition.repeatable
+        ? `All ${definition.maximumLifetimeUses} lifetime uses have been completed.`
+        : 'This one-time recruiting action has already been completed.',
+    );
+  }
+  if (actionId === 'film-review' && progress.scoutingKnowledge >= 100) {
+    addBlocker(
+      'lifetime-limit',
+      4,
+      'Scouting report is complete',
+      'Film Review is no longer needed because Scouting Knowledge has reached 100.',
+    );
   }
   if (state.recruiting.spendableRp < definition.rpCost) {
-    resourceReasons.push(`Needs ${definition.rpCost} RP`);
+    const shortfall = definition.rpCost - state.recruiting.spendableRp;
+    addBlocker(
+      'resources',
+      5,
+      `Need ${shortfall} more RP`,
+      `Requires ${definition.rpCost} RP; Apex has ${state.recruiting.spendableRp}.`,
+    );
   }
   if (definition.cashCost > state.team.cash) {
-    resourceReasons.push(`Needs $${definition.cashCost.toLocaleString()} cash`);
-  }
-  if (uses >= definition.maximumLifetimeUses) {
-    lifetimeReasons.push('No lifetime uses remaining');
-  }
-  if (!definition.repeatable && uses > 0) lifetimeReasons.push('Already completed');
-  if (definition.oncePerWeekend && progress.actionsUsedThisWeekend.includes(actionId)) {
-    usedReasons.push('Already used this weekend');
+    const shortfall = definition.cashCost - state.team.cash;
+    addBlocker(
+      'resources',
+      5,
+      `Need $${shortfall.toLocaleString()} more cash`,
+      `Requires $${definition.cashCost.toLocaleString()} cash; Apex has $${state.team.cash.toLocaleString()}.`,
+    );
   }
 
   const prerequisites = definition.prerequisites;
-  if (prerequisites.completedAll?.some((required) => !completed(progress, required))) {
-    prerequisiteReasons.push('Complete the required recruiting steps first');
+  const missingAll = prerequisites.completedAll?.filter(
+    (required) => !completed(progress, required),
+  );
+  if (missingAll?.length) {
+    const names = missingAll.map(
+      (required) =>
+        getRecruitingAction(required).contextualName ??
+        getRecruitingAction(required).canonicalName,
+    );
+    addBlocker(
+      'pathway',
+      8,
+      `Requires ${names.join(' and ')}`,
+      `Complete ${names.join(' and ')} to open this pathway.`,
+    );
   }
   if (
     prerequisites.completedAny &&
     !prerequisites.completedAny.some((required) => completed(progress, required))
   ) {
-    prerequisiteReasons.push('Complete an Owner Call or Crew Chief Call first');
+    const names = prerequisites.completedAny.map(
+      (required) =>
+        getRecruitingAction(required).contextualName ??
+        getRecruitingAction(required).canonicalName,
+    );
+    addBlocker(
+      'pathway',
+      8,
+      `Requires ${names.join(' or ')}`,
+      `Complete ${names.join(' or ')} to open this pathway.`,
+    );
   }
   if (
     prerequisites.minimumScouting !== undefined &&
     progress.scoutingKnowledge < prerequisites.minimumScouting
   ) {
-    prerequisiteReasons.push(`Scouting Knowledge must reach ${prerequisites.minimumScouting}`);
+    addBlocker(
+      'scouting',
+      6,
+      `Unlocks at ${prerequisites.minimumScouting} Scouting Knowledge`,
+      `Requires ${prerequisites.minimumScouting} Scouting Knowledge; current knowledge is ${progress.scoutingKnowledge}.`,
+    );
   }
   if (
     prerequisites.minimumInterest !== undefined &&
     progress.interest < prerequisites.minimumInterest
   ) {
-    prerequisiteReasons.push(`Apex Interest must reach ${prerequisites.minimumInterest}`);
+    addBlocker(
+      'interest',
+      7,
+      `Requires ${prerequisites.minimumInterest} Apex Interest`,
+      `Requires ${prerequisites.minimumInterest} Apex Interest; current interest is ${progress.interest}.`,
+    );
   }
   if (
     prerequisites.minimumEngagement !== undefined &&
     progress.engagement < prerequisites.minimumEngagement
   ) {
-    prerequisiteReasons.push(`Prospect Engagement must reach ${prerequisites.minimumEngagement}`);
+    addBlocker(
+      'engagement',
+      9,
+      `Requires Prospect Engagement ${prerequisites.minimumEngagement}`,
+      `Requires Prospect Engagement ${prerequisites.minimumEngagement}; current engagement is ${progress.engagement}.`,
+    );
   }
   if (prerequisites.contactEstablished && !completed(progress, 'text-dm')) {
-    prerequisiteReasons.push('Make contact first');
+    addBlocker(
+      'pathway',
+      8,
+      'Requires Direct Contact pathway',
+      'Complete Text / DM to establish the Direct Contact pathway.',
+    );
   }
   if (
     prerequisites.activeSponsor &&
     !state.sponsors.some((sponsor) => sponsor.active)
   ) {
-    prerequisiteReasons.push('An active team sponsor is required');
+    addBlocker(
+      'pathway',
+      8,
+      'Requires an active team sponsor',
+      'An active Apex team sponsor is required for this sponsor pathway.',
+    );
   }
   if (prerequisites.openReserveSlot && state.recruiting.reserveDriver) {
-    statusReasons.push('Reserve / Development slot is filled');
-  }
-  if (progress.signed) statusReasons.push('Prospect is already signed');
-  if (progress.signedByTeamId) statusReasons.push('Prospect signed with another team');
-  if (state.recruiting.reserveDriver && actionId === 'contract-offer') {
-    statusReasons.push('Reserve / Development slot is filled');
+    addBlocker(
+      'contract-roster',
+      11,
+      'Requires an open reserve slot',
+      'The Reserve / Development roster slot is currently filled.',
+    );
   }
 
-  const reasons = unique([
-    ...weeklyReasons,
-    ...resourceReasons,
-    ...lifetimeReasons,
-    ...usedReasons,
-    ...prerequisiteReasons,
-    ...statusReasons,
-  ]);
+  const orderedBlockers = [...blockers]
+    .sort((left, right) => left.priority - right.priority)
+    .filter(
+      (blocker, index, values) =>
+        values.findIndex((candidate) => candidate.detail === blocker.detail) === index,
+    );
+  const reasons = orderedBlockers.map((blocker) => blocker.reason);
+  const completedAction =
+    (definition.maximumLifetimeUses !== null &&
+      uses >= definition.maximumLifetimeUses) ||
+    (actionId === 'film-review' && progress.scoutingKnowledge >= 100);
 
   return {
     available: reasons.length === 0,
-    reasons: unique(reasons),
+    blockers: orderedBlockers,
+    completed: completedAction,
+    primaryReason: reasons[0] ?? null,
+    reasons,
     uses,
-    usesRemaining: Math.max(0, definition.maximumLifetimeUses - uses),
+    usesRemaining:
+      definition.maximumLifetimeUses === null
+        ? null
+        : Math.max(0, definition.maximumLifetimeUses - uses),
   };
 }
 
-type CalculatedEffects = {
+export type CalculatedEffects = {
   scouting: number;
   interest: number;
   engagement: number;
@@ -193,6 +346,12 @@ type CalculatedEffects = {
   reasons: string[];
   variancePercent: number;
 };
+
+export function getFilmReviewScoutingGain(completedUses: number) {
+  return filmReviewScoutingGains[
+    Math.min(completedUses, filmReviewScoutingGains.length - 1)
+  ];
+}
 
 function calculateMeterEffect(
   base: number,
@@ -230,6 +389,21 @@ export function calculateRecruitingEffects(
   seed: string,
 ): CalculatedEffects {
   const useIndex = progress.completedActionUses[definition.id] ?? 0;
+  if (definition.id === 'film-review') {
+    const scouting = getFilmReviewScoutingGain(useIndex);
+    return {
+      scouting,
+      interest: 0,
+      engagement: 0,
+      visibility: 0,
+      reasons: [
+        `Film Review use ${useIndex + 1}: +${scouting} Scouting Knowledge`,
+        'Repeatable once per prospect per week until fully scouted',
+        'No random variance or staff modifier',
+      ],
+      variancePercent: 0,
+    };
+  }
   const repeatMultiplier = definition.repeatable
     ? recruitingTuning.repeatMultipliers[Math.min(useIndex, 2)]
     : 1;
@@ -290,6 +464,42 @@ export function calculateRecruitingEffects(
   };
 }
 
+function clampRecruitingEffects(
+  progress: ProspectRecruitingProgress,
+  effects: CalculatedEffects,
+  visibility: number,
+): CalculatedEffects {
+  return {
+    ...effects,
+    scouting: Math.min(effects.scouting, 100 - progress.scoutingKnowledge),
+    interest: Math.min(effects.interest, 100 - progress.interest),
+    engagement: Math.min(effects.engagement, 100 - progress.engagement),
+    visibility: Math.min(effects.visibility, 100 - visibility),
+  };
+}
+
+export function previewRecruitingActionEffects(
+  state: GameState,
+  prospectId: string,
+  actionId: RecruitingActionId,
+  raceId: string,
+) {
+  const { prospect, progress } = getProspectParts(state, prospectId);
+  const definition = getRecruitingAction(actionId);
+  const availability = getActionAvailability(state, prospectId, actionId);
+  return clampRecruitingEffects(
+    progress,
+    calculateRecruitingEffects(
+      state,
+      prospect,
+      progress,
+      definition,
+      `${state.season}:${raceId}:${prospect.id}:${definition.id}:${availability.uses + 1}`,
+    ),
+    state.recruiting.visibility,
+  );
+}
+
 export function applyRecruitingAction(
   state: GameState,
   command: RecruitingActionCommand,
@@ -300,12 +510,16 @@ export function applyRecruitingAction(
   const availability = getActionAvailability(state, command.prospectId, command.actionId);
   if (!availability.available) throw new Error(availability.reasons[0]);
 
-  const effects = calculateRecruitingEffects(
-    state,
-    prospect,
+  const effects = clampRecruitingEffects(
     progress,
-    definition,
-    `${command.season}:${command.raceId}:${prospect.id}:${definition.id}:${availability.uses + 1}`,
+    calculateRecruitingEffects(
+      state,
+      prospect,
+      progress,
+      definition,
+      `${command.season}:${command.raceId}:${prospect.id}:${definition.id}:${availability.uses + 1}`,
+    ),
+    state.recruiting.visibility,
   );
   const useIndex = availability.uses + 1;
   const nextProgress: ProspectRecruitingProgress = {
@@ -717,7 +931,7 @@ function advanceRivalCampaign(
     const weeklyChange = Math.max(
       1,
       Math.min(
-        8,
+        recruitingTuning.rivalMaximumWeeklyGain,
         tierGain +
           manufacturerGain +
           getSeededVariance(`${transactionId}:${prospect.id}:${rival.teamId}`, 2),
@@ -1068,6 +1282,55 @@ export function selectProspectReveal(
   };
 }
 
+export type RecruitingRiskWarning = {
+  prospectId: string;
+  prospectName: string;
+  rivalTeamName: string;
+  message: string;
+};
+
+export function getRecruitingRiskWarning(
+  state: GameState,
+  prospectId: string,
+): RecruitingRiskWarning | null {
+  const { prospect, progress } = getProspectParts(state, prospectId);
+  const targeted =
+    progress.actionHistory.length > 0 ||
+    progress.recruitingCostToDate.rp > 0 ||
+    progress.recruitingCostToDate.cash > 0;
+  if (!targeted || progress.signed || progress.signedByTeamId) return null;
+  const leader = [...progress.rivals].sort(
+    (left, right) =>
+      right.interest - left.interest || left.teamId.localeCompare(right.teamId),
+  )[0];
+  if (
+    !leader ||
+    leader.interest + recruitingTuning.rivalMaximumWeeklyGain <
+      progress.signingThreshold
+  ) {
+    return null;
+  }
+  const rivalTeamName =
+    state.raceField.organizations.find(
+      (organization) => organization.id === leader.teamId,
+    )?.name ?? 'Another team';
+  const apexTrails = progress.interest < leader.interest;
+  return {
+    prospectId,
+    prospectName: prospect.name,
+    rivalTeamName,
+    message: apexTrails
+      ? 'Warning: Apex trails in this recruiting battle. Another team may sign him when the week advances.'
+      : 'Warning: This prospect is close to signing elsewhere.',
+  };
+}
+
+export function getImmediateRecruitingRiskWarnings(state: GameState) {
+  return state.recruiting.prospects
+    .map((prospect) => getRecruitingRiskWarning(state, prospect.id))
+    .filter((warning): warning is RecruitingRiskWarning => warning !== null);
+}
+
 export function getRecommendedRecruitingAction(state: GameState, prospectId: string) {
   const { prospect, progress } = getProspectParts(state, prospectId);
   if (progress.signed || progress.signedByTeamId) return undefined;
@@ -1080,7 +1343,7 @@ export function getRecommendedRecruitingAction(state: GameState, prospectId: str
   if (offer.willSign) return getRecruitingAction('contract-offer');
   const preferredGroups: RecruitingActionId[][] = progress.scoutingKnowledge < 51
     ? [
-        ['scout-report', 'watch-race-tape', 'background-check', 'film-session'],
+        ['scout-report', 'film-review', 'watch-race-tape', 'background-check', 'film-session'],
         ['text-dm', 'crew-chief-call', 'owner-call'],
       ]
     : progress.interest < progress.signingThreshold

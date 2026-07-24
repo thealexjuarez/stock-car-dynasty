@@ -11,6 +11,7 @@ import {
 } from '@/data/prospect-data';
 import { selectRecruitingFoundation } from '@/data/recruiting-foundation';
 import {
+  getRecruitingActionUsageTags,
   getRecruitingAction,
   recruitingActions,
   scoutingBands,
@@ -18,15 +19,26 @@ import {
 import { recruitingActionCopy } from '@/data/recruiting-copy';
 import { starterGameState } from '@/data/starter-game-state';
 import {
+  DEFAULT_COMPACT_ACTION_COUNT,
+  getOrderedRecruitingActions,
+  getRecruitingActionRowState,
+  MINIMUM_VISIBLE_ACTION_ROWS,
+  RECRUITING_ACTION_ROW_HEIGHT,
+  toggleExpandedRecruitingAction,
+} from '@/presentation/recruiting-actions';
+import {
   applyRecruitingAction,
   applyRecruitingOffer,
   applyRecruitingWeekendSettlement,
   calculateRecruitingEffects,
   evaluateContractOffer,
   getActionAvailability,
+  getFilmReviewScoutingGain,
+  getImmediateRecruitingRiskWarnings,
   getInterestLabel,
   getOfferAvailability,
   getRecommendedRecruitingAction,
+  getRecruitingRiskWarning,
   getRelationshipDepth,
   getScoutingBand,
   getSigningBonus,
@@ -154,17 +166,32 @@ test('market starts with 100 spendable RP, separate Pull 45, Visibility 44, and 
   );
 });
 
-test('all 26 canonical actions and locked high-end costs are centralized', () => {
-  assert.equal(recruitingActions.length, 26);
+test('all 26 canonical actions remain centralized beside the Film Review fallback', () => {
+  const canonicalActions = recruitingActions.filter((action) => action.id !== 'film-review');
+  assert.equal(canonicalActions.length, 26);
+  assert.equal(recruitingActions.length, 27);
   assert.deepEqual(
-    recruitingActions.map((item) => item.rpCost),
+    canonicalActions.map((item) => item.rpCost),
     [10,20,25,35,50,60,60,65,75,75,75,80,90,90,100,100,110,125,125,140,150,175,175,200,250,300],
+  );
+  assert.deepEqual(
+    {
+      cost: getRecruitingAction('film-review').rpCost,
+      lifetime: getRecruitingAction('film-review').maximumLifetimeUses,
+      oncePerWeekend: getRecruitingAction('film-review').oncePerWeekend,
+      repeatable: getRecruitingAction('film-review').repeatable,
+    },
+    { cost: 25, lifetime: null, oncePerWeekend: true, repeatable: true },
   );
   assert.equal(getRecruitingAction('private-test-day').cashCost, 20_000);
   assert.equal(getRecruitingAction('contract-offer').rpCost, 300);
-  assert.equal(Object.keys(recruitingActionCopy).length, 26);
+  assert.equal(Object.keys(recruitingActionCopy).length, 27);
   assert.equal(
     recruitingActions.every((action) => recruitingActionCopy[action.id].purpose.length > 20),
+    true,
+  );
+  assert.equal(
+    recruitingActions.every((action) => getRecruitingActionUsageTags(action).length > 0),
     true,
   );
 });
@@ -334,6 +361,84 @@ test('successful action spends RP once and replay returns the same state', () =>
   assert.equal(next.recruiting.spendableRp, 75);
   assert.equal(next.recruiting.campaigns[masonId].scoutingKnowledge > 0, true);
   assert.strictEqual(applyRecruitingAction(next, command('scout-report')), next);
+});
+
+test('every unsigned prospect retains a legal Film Review path in every scouting band', () => {
+  const base = withResources(freshGame());
+  for (const prospect of base.recruiting.prospects) {
+    for (const scoutingKnowledge of [0, 26, 51, 76, 99]) {
+      const state = withProgress(base, prospect.id, {
+        scoutingKnowledge,
+        weeklyActionCount: 0,
+        actionsUsedThisWeekend: [],
+      });
+      assert.equal(
+        getActionAvailability(state, prospect.id, 'film-review').available,
+        true,
+        `${prospect.id} should retain Film Review at ${scoutingKnowledge}`,
+      );
+    }
+  }
+});
+
+test('Film Review uses exact 12, 10, 8, then 6-point gains with no interest gain', () => {
+  let state = withResources(freshGame());
+  const expectedGains = [12, 10, 8, 6, 6];
+  expectedGains.forEach((expectedGain, index) => {
+    const before = state.recruiting.campaigns[masonId];
+    const action = command('film-review', masonId, `${index + 1}`);
+    const next = applyRecruitingAction(state, action);
+    const after = next.recruiting.campaigns[masonId];
+    assert.equal(after.scoutingKnowledge - before.scoutingKnowledge, expectedGain);
+    assert.equal(after.interest, before.interest);
+    assert.equal(next.recruiting.spendableRp, state.recruiting.spendableRp - 25);
+    assert.strictEqual(applyRecruitingAction(next, action), next);
+    state = withProgress(next, masonId, {
+      weeklyActionCount: 0,
+      actionsUsedThisWeekend: [],
+    });
+  });
+  assert.deepEqual([0, 1, 2, 3, 20].map(getFilmReviewScoutingGain), [12, 10, 8, 6, 6]);
+});
+
+test('Film Review is weekly-limited, lifetime-unlimited, and reaches exactly 100', () => {
+  let state = withResources(freshGame(), 2_000);
+  let uses = 0;
+  while (state.recruiting.campaigns[masonId].scoutingKnowledge < 100) {
+    const availability = getActionAvailability(state, masonId, 'film-review');
+    assert.equal(availability.available, true);
+    const next = applyRecruitingAction(
+      state,
+      command('film-review', masonId, `reach-100-${uses}`),
+    );
+    uses += 1;
+    assert.equal(
+      getActionAvailability(next, masonId, 'film-review').reasons[0],
+      'Weekly use already spent',
+    );
+    state = withProgress(next, masonId, {
+      weeklyActionCount: 0,
+      actionsUsedThisWeekend: [],
+    });
+    assert.equal(uses < 25, true);
+  }
+  assert.equal(state.recruiting.campaigns[masonId].scoutingKnowledge, 100);
+  const complete = getActionAvailability(state, masonId, 'film-review');
+  assert.equal(complete.available, false);
+  assert.equal(complete.completed, true);
+  assert.equal(complete.reasons[0], 'Scouting report is complete');
+
+  const deepHistory = withProgress(
+    withResources(freshGame()),
+    masonId,
+    {
+      scoutingKnowledge: 90,
+      completedActionUses: { 'film-review': 50 },
+      weeklyActionCount: 0,
+      actionsUsedThisWeekend: [],
+    },
+  );
+  assert.equal(getActionAvailability(deepHistory, masonId, 'film-review').available, true);
 });
 
 test('failed validation spends no RP or cash', () => {
@@ -568,14 +673,91 @@ test('disabled recruiting reasons follow the approved player-facing priority', (
     masonId,
     {
       weeklyActionCount: 3,
-      completedActionUses: { 'shop-tour': 1 },
-      actionsUsedThisWeekend: ['shop-tour'],
+      completedActionUses: { 'watch-race-tape': 2 },
+      actionsUsedThisWeekend: ['watch-race-tape'],
     },
   );
-  const availability = getActionAvailability(blocked, masonId, 'shop-tour');
-  assert.equal(availability.reasons[0], 'Three-action weekend limit reached');
-  assert.equal(availability.reasons[1], 'Needs 90 RP');
-  assert.equal(availability.reasons.includes('No lifetime uses remaining'), true);
+  const availability = getActionAvailability(blocked, masonId, 'watch-race-tape');
+  assert.deepEqual(
+    availability.reasons.slice(0, 4),
+    [
+      'Weekly action limit reached',
+      'Weekly use already spent',
+      'Lifetime uses exhausted',
+      'Need 50 more RP',
+    ],
+  );
+  assert.equal(
+    availability.blockers.some(
+      (blocker) => blocker.detail === 'Requires 50 RP; Apex has 0.',
+    ),
+    true,
+  );
+});
+
+test('locked actions show exact requirements and deterministic collapsed-row states', () => {
+  const state = withProgress(withResources(freshGame(), 30), masonId, {
+    interest: 0,
+  });
+  const action = getActionAvailability(state, masonId, 'shop-tour');
+  assert.equal(action.primaryReason, 'Need 60 more RP');
+  assert.equal(getRecruitingActionRowState(action), 'Insufficient RP');
+  assert.equal(
+    action.reasons.includes('Requires Pitch Seat Opportunity'),
+    true,
+  );
+  assert.equal(action.reasons.includes('Requires 35 Apex Interest'), true);
+
+  const weekly = getActionAvailability(
+    withProgress(withResources(freshGame()), masonId, {
+      actionsUsedThisWeekend: ['film-review'],
+    }),
+    masonId,
+    'film-review',
+  );
+  assert.equal(getRecruitingActionRowState(weekly), 'Used This Week');
+  assert.equal(
+    getRecruitingActionRowState(
+      getActionAvailability(
+        withProgress(withResources(freshGame()), masonId, {
+          scoutingKnowledge: 100,
+        }),
+        masonId,
+        'film-review',
+      ),
+    ),
+    'Completed',
+  );
+});
+
+test('compact action ordering is stable and one action expands at a time', () => {
+  const state = withResources(freshGame());
+  const first = getOrderedRecruitingActions(
+    state,
+    masonId,
+    'All',
+    'film-review',
+  ).map((action) => action.id);
+  const second = getOrderedRecruitingActions(
+    state,
+    masonId,
+    'All',
+    'film-review',
+  ).map((action) => action.id);
+  assert.deepEqual(first, second);
+  assert.equal(first[0], 'film-review');
+  assert.equal(toggleExpandedRecruitingAction(null, 'film-review'), 'film-review');
+  assert.equal(
+    toggleExpandedRecruitingAction('film-review', 'scout-report'),
+    'scout-report',
+  );
+  assert.equal(
+    toggleExpandedRecruitingAction('film-review', 'film-review'),
+    null,
+  );
+  assert.equal(DEFAULT_COMPACT_ACTION_COUNT >= MINIMUM_VISIBLE_ACTION_ROWS, true);
+  assert.equal(RECRUITING_ACTION_ROW_HEIGHT >= 48, true);
+  assert.equal(RECRUITING_ACTION_ROW_HEIGHT <= 64, true);
 });
 
 test('recommended move follows scouting, relationship, and signing readiness', () => {
@@ -787,6 +969,69 @@ test('v4 recruiting migration preserves progress and initializes new competition
   assert.deepEqual(normalizeGameState(normalized), normalized);
 });
 
+test('migration restores Film Review access without changing stuck prospect progress', () => {
+  const legacy = structuredClone(starterGameState);
+  const progress = legacy.recruiting.campaigns[masonId];
+  progress.scoutingKnowledge = 82;
+  progress.interest = 64;
+  progress.completedActionUses = Object.fromEntries(
+    recruitingActions
+      .filter(
+        (action) =>
+          action.id !== 'film-review' &&
+          action.effects.scouting > 0 &&
+          action.maximumLifetimeUses !== null,
+      )
+      .map((action) => [action.id, action.maximumLifetimeUses]),
+  );
+  legacy.recruiting.spendableRp = 250;
+  const normalized = normalizeGameState(legacy);
+  assert.equal(normalized.recruiting.campaigns[masonId].scoutingKnowledge, 82);
+  assert.equal(normalized.recruiting.campaigns[masonId].interest, 64);
+  assert.equal(normalized.recruiting.spendableRp, 250);
+  assert.equal(getActionAvailability(normalized, masonId, 'film-review').available, true);
+  assert.deepEqual(normalizeGameState(normalized), normalized);
+});
+
+test('targeted prospects warn before a rival can cross the signing line', () => {
+  const start = withProgress(freshGame(), masonId, {
+    actionHistory: [
+      {
+        id: 'risk-target',
+        season: 1,
+        week: 1,
+        raceId: 'race-1',
+        actionId: 'film-review',
+        actionName: 'Film Review',
+        useIndex: 1,
+        rpCost: 25,
+        cashCost: 0,
+        scoutingGain: 12,
+        interestGain: 0,
+        engagementGain: 0,
+        visibilityGain: 0,
+        reasons: [],
+      },
+    ],
+    rivals: [
+      {
+        ...freshGame().recruiting.campaigns[masonId].rivals[0],
+        interest: freshGame().recruiting.campaigns[masonId].signingThreshold - 8,
+      },
+    ],
+  });
+  const warning = getRecruitingRiskWarning(start, masonId);
+  assert.notEqual(warning, null);
+  assert.match(warning!.message, /week advances|close to signing elsewhere/);
+  assert.equal(
+    getImmediateRecruitingRiskWarnings(start).some(
+      (item) => item.prospectId === masonId,
+    ),
+    true,
+  );
+  assert.equal(getRecruitingRiskWarning(freshGame(), masonId), null);
+});
+
 test('staff canon uses Ray Hollis, Ava Larkin, and Marco DeSoto after migration', () => {
   const legacy = structuredClone(starterGameState);
   legacy.staff = legacy.staff
@@ -850,6 +1095,17 @@ test('recruiting screens use plain-language meters, battle copy, and guaranteed 
   assert.match(market, /Apex Interest/);
   assert.match(profile, /Recruiting Battle/);
   assert.match(profile, /Signing line/);
+  assert.match(profile, /Best Next Move/);
+  assert.match(profile, /Show All Recruiting Actions/);
+  assert.match(profile, /accessibilityState=\{\{ expanded/);
+  assert.match(
+    readFileSync(`${cwd}/src/simulation/recruiting.ts`, 'utf8'),
+    /Weekly use already spent/,
+  );
+  assert.match(
+    readFileSync(`${cwd}/src/data/recruiting-config.ts`, 'utf8'),
+    /Review more race footage to keep building the scouting report/,
+  );
   assert.match(offer, /A valid offer signs the driver immediately/);
   assert.match(offer, /spends no Recruiting Points or cash/);
   assert.doesNotMatch(profile, />S \+/);
