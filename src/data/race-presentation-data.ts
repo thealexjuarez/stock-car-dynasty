@@ -14,6 +14,7 @@ import type {
   RacePresentationEntrant,
   RaceSessionKind,
 } from '@/types/race-presentation';
+import { getTireLabel } from '@/simulation/race-depth';
 
 /**
  * PRESENTATION-ONLY SESSION ASSUMPTIONS.
@@ -132,6 +133,9 @@ export function getRacePresentationEntrants(
     const rating = calculateFieldEntryRating(state, entry, track);
     const qualifying = weekend?.qualifying?.entries.find((item) => item.id === entry.id);
     const race = weekend?.race?.entries.find((item) => item.id === entry.id);
+    const depthEntry = weekend?.race?.depthFacts?.entryFacts.find(
+      (item) => item.entryId === entry.id,
+    );
     const qualifyingPosition = qualifying?.position ?? index + 1;
     const finishPosition = race?.finishPosition ?? qualifyingPosition;
     const orderedPosition =
@@ -162,10 +166,46 @@ export function getRacePresentationEntrants(
           : racePresentationAssumptions.presentationPaceBase +
             rating * racePresentationAssumptions.presentationPaceRatingScale,
       authoritativeFinishPosition: race?.finishPosition,
-      tireStatus: index < 16 ? 'Good' : 'Used',
-      tirePercent: Math.max(78, 94 - (index % 12)),
-      fuelPercent: Math.max(66, 76 - (index % 10)),
+      tireStatus: depthEntry
+        ? getTireLabel(depthEntry.tireConditionBySegment[0] ?? 100)
+        : index < 16
+          ? 'Good'
+          : 'Used',
+      tirePercent:
+        depthEntry?.tireConditionBySegment[0] ??
+        Math.max(78, 94 - (index % 12)),
+      fuelPercent:
+        depthEntry?.fuelBySegment[0] ?? Math.max(66, 76 - (index % 10)),
       carCondition: vehicle?.condition,
+      planLabel: depthEntry
+        ? `${depthEntry.plan.basePace} · ${depthEntry.plan.broadStagePlan}`
+        : undefined,
+      nextServiceLabel: depthEntry
+        ? `${depthEntry.plannedStopCount} planned stops`
+        : undefined,
+      segmentSnapshots: weekend?.race?.depthFacts?.segmentFacts.map(
+        (segmentFact) => {
+          const entryFact = segmentFact.entries.find(
+            (item) => item.entryId === entry.id,
+          );
+          return {
+            segment: segmentFact.segment,
+            position:
+              entryFact?.finishPosition ??
+              depthEntry?.finishPosition ??
+              finishPosition,
+            tirePercent: entryFact?.tireAfter ?? 100,
+            tireStatus: getTireLabel(entryFact?.tireAfter ?? 100),
+            fuelPercent: entryFact?.fuelAfter ?? 100,
+            pace: entryFact?.pace ?? depthEntry?.plan.basePace ?? 'Balanced',
+            pitStatus: entryFact?.pitStopIds.length
+              ? 'Serviced'
+              : 'On track',
+            caution: segmentFact.caution,
+            damageConditionLoss: entryFact?.damageConditionLoss ?? 0,
+          };
+        },
+      ),
       sprite: sprite(
         paint?.bodyColor ?? organization.primaryColor,
         paint?.accentColor ?? organization.accentColor,

@@ -152,6 +152,9 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
           <SessionStatusStrip
             config={config}
             currentLap={model.currentLap}
+            cautionState={model.cautionState}
+            segmentLabel={model.currentSegmentLabel}
+            stageLabel={kind === 'race' ? `Stage ${model.currentStage}` : undefined}
             trackName={track.name}
           />
 
@@ -176,7 +179,7 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
                   runningEntry={runningEntry}
                   selectedMode={paceModes[driverId] ?? 'Balanced'}
                   sessionState={getDriverState(entry)}
-                  showPaceControls={kind === 'race'}
+                  showPaceControls={false}
                   totalLaps={config.totalLaps}
                 />
               );

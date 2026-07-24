@@ -4,6 +4,10 @@ import { getWeekendEntrants } from '@/data/race-presentation-data';
 import { getNextRace, starterGameState } from '@/data/starter-game-state';
 import { createPracticeInput, resolvePractice } from '@/simulation/practice';
 import {
+  createRecommendedRacePlan,
+  projectRacePlan,
+} from '@/simulation/race-depth';
+import {
   applyRaceSettlement,
   resolveQualifying,
   resolveRace,
@@ -155,6 +159,7 @@ function createWeekend(state: GameState): RaceWeekendState {
     raceId: race.id,
     seed: `season-${state.season}:${race.id}`,
     phase: 'preview',
+    racePlans: {},
   };
 }
 
@@ -207,9 +212,66 @@ export function gameSessionReducer(
         },
       };
     }
-    case 'SHOW_GRID':
+    case 'SHOW_GRID': {
       if (!state.weekend.qualifying) throw new Error('Qualifying must be completed first');
-      return { ...state, weekend: { ...state.weekend, phase: 'grid' } };
+      const racePlans = Object.fromEntries(
+        getWeekendEntrants(state.game)
+          .filter((entry) => entry.isPlayerTeam)
+          .map((entry) => [
+            entry.id,
+            state.weekend.racePlans[entry.id] ??
+              createRecommendedRacePlan(
+                state.game,
+                entry,
+                `${state.weekend.seed}:recommended`,
+              ),
+          ]),
+      );
+      return {
+        ...state,
+        weekend: { ...state.weekend, phase: 'grid', racePlans },
+      };
+    }
+    case 'SET_RACE_PLAN': {
+      if (state.weekend.phase !== 'grid') {
+        throw new Error('Race plans can only be changed before the race');
+      }
+      if (
+        action.plan.raceId !== state.weekend.raceId ||
+        action.plan.id !==
+          `race-plan:${state.game.season}:${action.plan.entryId}`
+      ) {
+        throw new Error('This race plan no longer matches the active weekend');
+      }
+      const entrant = getWeekendEntrants(state.game).find(
+        (entry) => entry.id === action.plan.entryId && entry.isPlayerTeam,
+      );
+      if (!entrant || entrant.driverId !== action.plan.driverId) {
+        throw new Error('Race plan entry or driver is not active');
+      }
+      const teammatePlan = Object.values(state.weekend.racePlans).find(
+        (plan) => plan.entryId !== action.plan.entryId,
+      );
+      const projection = projectRacePlan(
+        state.game,
+        entrant,
+        action.plan,
+        teammatePlan,
+      );
+      if (!projection.legal) {
+        throw new Error(projection.reasons.join(' '));
+      }
+      return {
+        ...state,
+        weekend: {
+          ...state.weekend,
+          racePlans: {
+            ...state.weekend.racePlans,
+            [action.plan.entryId]: action.plan,
+          },
+        },
+      };
+    }
     case 'BEGIN_RACE': {
       const { practice, qualifying } = state.weekend;
       if (!practice || !qualifying) throw new Error('A practice result and grid are required');
@@ -223,6 +285,7 @@ export function gameSessionReducer(
             qualifying,
             practice,
             `${state.weekend.seed}:race`,
+            state.weekend.racePlans,
           ),
         },
       };

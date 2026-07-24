@@ -8,6 +8,7 @@ import type {
   RecruitingActionId,
 } from '@/types/recruiting';
 import type { PracticeChoiceId, PracticeResult } from '@/types/practice';
+import type { RaceDepthFacts, RacePlan } from '@/types/race-depth';
 
 export type RaceWeekendPhase =
   | 'preview'
@@ -60,6 +61,8 @@ export type RaceResult = {
   playerPayout: number;
   playerExp: number;
   playerConditionLoss: number;
+  depthFacts?: RaceDepthFacts;
+  legacyRaceDepth?: true;
 };
 
 export type RaceWeekendState = {
@@ -69,6 +72,7 @@ export type RaceWeekendState = {
   practice?: PracticeResult;
   qualifying?: QualifyingResult;
   race?: RaceResult;
+  racePlans: Record<string, RacePlan>;
 };
 
 export type GameSessionState = {
@@ -80,6 +84,7 @@ export type GameSessionAction =
   | { type: 'COMPLETE_PRACTICE'; choiceId: PracticeChoiceId }
   | { type: 'BEGIN_QUALIFYING' }
   | { type: 'SHOW_GRID' }
+  | { type: 'SET_RACE_PLAN'; plan: RacePlan }
   | { type: 'BEGIN_RACE' }
   | { type: 'SHOW_RESULTS' }
   | { type: 'ADVANCE_EVENT'; actionId: string }

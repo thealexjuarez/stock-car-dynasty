@@ -15,6 +15,7 @@ import { starterGameState } from '@/data/starter-game-state';
 import { getSettlementTransactionId } from '@/simulation/economy';
 import type { RepairOptionId } from '@/types/game';
 import type { PracticeChoiceId } from '@/types/practice';
+import type { RacePlan } from '@/types/race-depth';
 import type {
   ContractTermYears,
   RecruitingActionId,
@@ -26,6 +27,7 @@ type GameSessionContextValue = {
   completePractice: (choiceId: PracticeChoiceId) => void;
   beginQualifying: () => void;
   showGrid: () => void;
+  setRacePlan: (plan: RacePlan) => void;
   beginRace: () => void;
   showResults: () => void;
   advanceEvent: () => void;
@@ -56,6 +58,7 @@ export function GameSessionProvider({ children }: PropsWithChildren) {
       completePractice: (choiceId) => send({ type: 'COMPLETE_PRACTICE', choiceId }),
       beginQualifying: () => send({ type: 'BEGIN_QUALIFYING' }),
       showGrid: () => send({ type: 'SHOW_GRID' }),
+      setRacePlan: (plan) => send({ type: 'SET_RACE_PLAN', plan }),
       beginRace: () => send({ type: 'BEGIN_RACE' }),
       showResults: () => send({ type: 'SHOW_RESULTS' }),
       advanceEvent: () => {

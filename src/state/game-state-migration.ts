@@ -8,7 +8,9 @@ import {
   createProspectProgress,
 } from '@/data/prospect-data';
 import { createInitialRaceFieldState } from '@/data/erca-field-data';
+import { getWeekendEntrants } from '@/data/race-presentation-data';
 import { starterGameState } from '@/data/starter-game-state';
+import { createRecommendedRacePlan } from '@/simulation/race-depth';
 import { updateVehicleCondition } from '@/simulation/vehicle-repair';
 import type {
   Driver,
@@ -25,7 +27,7 @@ import type {
 } from '@/types/recruiting';
 import type { DriverStanding, RaceFieldState } from '@/types/race-field';
 
-export const CURRENT_GAME_STATE_VERSION = 5;
+export const CURRENT_GAME_STATE_VERSION = 6;
 
 const canonicalArchetypes = new Set<DriverArchetype>([
   'Complete Driver',
@@ -401,6 +403,25 @@ export function normalizeGameSessionState(
   state: GameSessionState & { processedRepairActionIds?: string[] },
 ): GameSessionState {
   const game = normalizeGameState(state.game);
+  const preservedPlans = { ...(state.weekend.racePlans ?? {}) };
+  const racePlans =
+    state.weekend.phase === 'grid' &&
+    state.weekend.qualifying &&
+    !state.weekend.race
+      ? Object.fromEntries(
+          getWeekendEntrants(game)
+            .filter((entry) => entry.isPlayerTeam)
+            .map((entry) => [
+              entry.id,
+              preservedPlans[entry.id] ??
+                createRecommendedRacePlan(
+                  game,
+                  entry,
+                  `${state.weekend.seed}:recommended`,
+                ),
+            ]),
+        )
+      : preservedPlans;
   return {
     game: {
       ...game,
@@ -409,6 +430,19 @@ export function normalizeGameSessionState(
         state.processedRepairActionIds,
       ),
     },
-    weekend: { ...state.weekend },
+    weekend: {
+      ...state.weekend,
+      racePlans,
+      ...(state.weekend.race &&
+      !state.weekend.race.depthFacts &&
+      (state.weekend.phase === 'race' || state.weekend.phase === 'results')
+        ? {
+            race: {
+              ...state.weekend.race,
+              legacyRaceDepth: true as const,
+            },
+          }
+        : {}),
+    },
   };
 }

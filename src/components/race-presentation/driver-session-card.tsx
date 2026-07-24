@@ -80,6 +80,11 @@ export function DriverSessionCard({
         <Telemetry label="Fuel" value={`${runningEntry.fuelPercent}%`} />
         <Telemetry label="Condition" value={`${entry.carCondition ?? 100}%`} />
       </View>
+      {entry.planLabel ? (
+        <AppText numberOfLines={1} variant="caption" tone="soft" style={{ fontSize: 9 }}>
+          {entry.planLabel} · {entry.nextServiceLabel}
+        </AppText>
+      ) : null}
 
       {showPaceControls ? (
         <DriverCommandArea

@@ -2,6 +2,7 @@ import { useRouter, type Href } from 'expo-router';
 import { View } from 'react-native';
 
 import { WeekendProgressStrip } from '@/components/race-presentation/weekend-progress-strip';
+import { RacePlanEditor } from '@/components/race-depth/race-plan-editor';
 import { AppButton } from '@/components/shared/app-button';
 import { AppCard } from '@/components/shared/app-card';
 import { AppRow } from '@/components/shared/app-row';
@@ -29,13 +30,6 @@ export function StartingGridScreen() {
   }
 
   const apexEntries = qualifying.entries.filter((entry) => entry.isPlayerTeam);
-  const apexPositions = apexEntries.map((entry) => entry.position);
-  const focusedGrid = qualifying.entries.filter(
-    (entry) =>
-      entry.position === 1 ||
-      entry.isPlayerTeam ||
-      apexPositions.some((position) => Math.abs(entry.position - position) <= 1),
-  );
   const poleWinner = qualifying.entries[0];
 
   const startRace = () => {
@@ -70,30 +64,16 @@ export function StartingGridScreen() {
         ))}
       </AppCard>
 
-      <AppCard style={{ gap: theme.spacing.sm, padding: theme.spacing.md }}>
+      <RacePlanEditor />
+
+      <AppCard style={{ gap: 6, padding: theme.spacing.sm }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>
-            <AppText variant="title">Field Focus</AppText>
-            <AppText tone="muted">Pole, Apex entries, and nearby traffic.</AppText>
+            <AppText variant="caption">Pole: #{poleWinner.carNumber} · {poleWinner.driverName}</AppText>
+            <AppText variant="caption" tone="muted">Full P1–P32 grid and manufacturer detail.</AppText>
           </View>
           <StatusBadge label="32 Cars" tone="neutral" />
         </View>
-        {focusedGrid.map((entry) => (
-          <View
-            key={entry.id}
-            style={{ alignItems: 'center', flexDirection: 'row', gap: theme.spacing.sm }}>
-            <StatusBadge
-              label={`P${entry.position}`}
-              tone={entry.isPlayerTeam ? 'yellow' : entry.id === poleWinner.id ? 'green' : 'neutral'}
-            />
-            <View style={{ flex: 1 }}>
-              <AppText>#{entry.carNumber} · {entry.driverName}</AppText>
-              <AppText tone="soft" variant="caption">
-                {entry.teamName} · {entry.manufacturerId}
-              </AppText>
-            </View>
-          </View>
-        ))}
         <AppButton
           label="View Full Starting Grid"
           onPress={() => router.push('/full-grid' as Href)}

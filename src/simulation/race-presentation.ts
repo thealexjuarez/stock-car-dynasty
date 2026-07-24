@@ -22,6 +22,25 @@ const getDistance = (
   elapsedMs: number,
 ) => {
   const progress = Math.min(1, elapsedMs / config.sessionDurationMs);
+  if (config.kind === 'race' && entrant.segmentSnapshots?.length) {
+    const rawSegment = progress * entrant.segmentSnapshots.length;
+    const currentIndex = Math.min(
+      entrant.segmentSnapshots.length - 1,
+      Math.floor(rawSegment),
+    );
+    const prior =
+      entrant.segmentSnapshots[Math.max(0, currentIndex - 1)] ??
+      entrant.segmentSnapshots[currentIndex];
+    const current = entrant.segmentSnapshots[currentIndex];
+    const localProgress = Math.min(1, rawSegment - Math.floor(rawSegment));
+    const interpolatedPosition =
+      prior.position * (1 - localProgress) + current.position * localProgress;
+    return (
+      getStartDistance(entrant, config) +
+      config.presentationTravelLaps * progress +
+      (config.fieldSize - interpolatedPosition) * 0.012
+    );
+  }
   const simulatedDistance =
     getStartDistance(entrant, config) +
     config.presentationTravelLaps * progress * entrant.paceFactor;
@@ -60,7 +79,29 @@ export function getRunningOrder(
   const isResolvedRaceFinish =
     config.kind === 'race' && elapsedMs >= config.sessionDurationMs;
   const ordered = entrants
-    .map((entrant) => ({ entrant, distance: getDistance(entrant, config, elapsedMs) }))
+    .map((entrant) => {
+      const progress = Math.min(1, elapsedMs / config.sessionDurationMs);
+      const snapshotIndex = entrant.segmentSnapshots?.length
+        ? Math.min(
+            entrant.segmentSnapshots.length - 1,
+            Math.floor(progress * entrant.segmentSnapshots.length),
+          )
+        : -1;
+      const snapshot =
+        snapshotIndex >= 0 ? entrant.segmentSnapshots?.[snapshotIndex] : undefined;
+      return {
+        entrant: snapshot
+          ? {
+              ...entrant,
+              tireStatus: snapshot.tireStatus,
+              tirePercent: snapshot.tirePercent,
+              fuelPercent: snapshot.fuelPercent,
+              planLabel: `${snapshot.pace} · ${snapshot.pitStatus}`,
+            }
+          : entrant,
+        distance: getDistance(entrant, config, elapsedMs),
+      };
+    })
     .sort(
       (left, right) => {
         if (
@@ -165,6 +206,17 @@ export function createRacePresentationModel(
   }
 
   const sessionProgress = Math.min(100, (elapsedMs / config.sessionDurationMs) * 100);
+  const segmentCount =
+    focusedEntry.segmentSnapshots?.length ?? (config.kind === 'race' ? 6 : 1);
+  const currentSegment =
+    config.kind === 'race'
+      ? Math.min(
+          segmentCount,
+          Math.floor((elapsedMs / config.sessionDurationMs) * segmentCount) + 1,
+        )
+      : 1;
+  const currentSnapshot =
+    focusedEntry.segmentSnapshots?.[currentSegment - 1];
   const qualifyingRunState = getQualifyingRunState(entrants, config, elapsedMs);
   const currentLap =
     config.kind === 'qualifying'
@@ -183,5 +235,18 @@ export function createRacePresentationModel(
     activeQualifyingEntryId: qualifyingRunState.activeEntryId,
     qualifyingRunNumber: qualifyingRunState.runNumber,
     ovalPhase: getOvalPresentationPhase(elapsedMs, config.ovalCycleMs),
+    currentSegment,
+    currentStage:
+      currentSegment <= 2 ? 1 : currentSegment <= 4 ? 2 : 3,
+    currentSegmentLabel:
+      config.kind === 'race'
+        ? ['Opening Run', 'Early Run', 'Mid-Race Run', 'Long Run', 'Late Run', 'Closing Run'][
+            currentSegment - 1
+          ] ?? 'Race Run'
+        : 'Qualifying Run',
+    cautionState:
+      config.kind === 'race' && currentSnapshot?.caution
+        ? 'Caution'
+        : 'Green',
   };
 }

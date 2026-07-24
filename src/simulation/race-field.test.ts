@@ -215,7 +215,12 @@ test('field identity and accumulated standings persist through a second weekend'
     type: 'ADVANCE_EVENT',
     actionId: `settlement:${first.weekend.race!.raceId}:${first.weekend.race!.seed}`,
   });
-  const second = completeWeekend(firstAdvanced.game);
+  const second = completeWeekend({
+    ...firstAdvanced.game,
+    vehicles: firstAdvanced.game.vehicles.map((vehicle) =>
+      updateVehicleCondition(vehicle, 100, 'Persistence fixture repair.'),
+    ),
+  });
   const secondAdvanced = gameSessionReducer(second, {
     type: 'ADVANCE_EVENT',
     actionId: `settlement:${second.weekend.race!.raceId}:${second.weekend.race!.seed}`,
@@ -238,7 +243,7 @@ test('state v3 migration adds the field without resetting existing career progre
   legacy.drivers[0].exp = 88;
   const normalized = normalizeGameState(legacy as GameState);
 
-  assert.equal(normalized.stateVersion, 5);
+  assert.equal(normalized.stateVersion, 6);
   assert.equal(normalized.raceField.entries.length, 32);
   assert.equal(normalized.raceField.standings.every((row) => row.starts === 0), true);
   assert.equal(normalized.team.cash, 321_000);
