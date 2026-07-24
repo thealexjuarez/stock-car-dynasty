@@ -291,7 +291,7 @@ test('the same event seed produces identical qualifying and race outcomes', () =
       .map((entry) => [entry.carNumber, entry.finishPosition]),
     [
       ['46', 7],
-      ['45', 18],
+      ['45', 20],
     ],
   );
   assert.equal(first.weekend.race?.playerPayout, 29_000);
@@ -327,7 +327,7 @@ test('both Apex cars receive their correct payout tiers', () => {
     ]),
     [
       ['46', 7, 18_000],
-      ['45', 18, 11_000],
+      ['45', 20, 11_000],
     ],
   );
   assert.equal(settlement.totalRaceWinnings, 29_000);

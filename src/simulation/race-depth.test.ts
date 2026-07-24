@@ -9,6 +9,7 @@ import { starterGameState } from '@/data/starter-game-state';
 import {
   calculateSegmentFuelUse,
   getCriticalTirePacePenalty,
+  getCenteredSeededVariance,
   getMajorIncidentRedFlagChance,
   getRaceDepthSegmentCount,
   getTireFailureChance,
@@ -88,6 +89,19 @@ test('segment tables lock six, eight, and ten logical races', () => {
   assert.deepEqual(raceDepthTuning.segments.tables[6].boundaries, [2, 4]);
   assert.deepEqual(raceDepthTuning.segments.tables[8].boundaries, [2, 4, 6]);
   assert.deepEqual(raceDepthTuning.segments.tables[10].boundaries, [2, 5, 7]);
+});
+
+test('decimal seeded variance remains centered inside the approved bound', () => {
+  const samples = Array.from({ length: 500 }, (_, index) =>
+    getCenteredSeededVariance(`race-depth-variance:${index}`, 0.04),
+  );
+  assert.equal(samples.every((value) => value >= -0.04 && value <= 0.04), true);
+  assert.equal(
+    getCenteredSeededVariance('repeatable', 2.5),
+    getCenteredSeededVariance('repeatable', 2.5),
+  );
+  assert.equal(samples.some((value) => value < 0), true);
+  assert.equal(samples.some((value) => value > 0), true);
 });
 
 test('approved tire labels, cliff penalties, spin bands, and failure curve are exact', () => {

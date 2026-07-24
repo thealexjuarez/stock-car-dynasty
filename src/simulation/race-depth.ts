@@ -10,7 +10,7 @@ import {
   getFieldDriver,
   getFieldOrganization,
 } from '@/simulation/race-field';
-import { getSeededUnit, getSeededVariance } from '@/simulation/seeded-variance';
+import { getSeededUnit } from '@/simulation/seeded-variance';
 import type {
   Driver,
   DriverArchetype,
@@ -50,6 +50,9 @@ import type {
 
 const clamp = (value: number, minimum: number, maximum: number) =>
   Math.min(maximum, Math.max(minimum, value));
+export function getCenteredSeededVariance(seed: string, maximum: number) {
+  return (getSeededUnit(seed) * 2 - 1) * maximum;
+}
 const round = (value: number, digits = 2) => {
   const scale = 10 ** digits;
   return Math.round(value * scale) / scale;
@@ -460,10 +463,7 @@ function calculateSegmentTireWear(input: {
   );
   const variance =
     1 +
-    getSeededVariance(
-      `${input.seed}:wear`,
-      tuning.tire.variance,
-    );
+    getCenteredSeededVariance(`${input.seed}:wear`, tuning.tire.variance);
   const totalMultiplier = clamp(
     tuning.pace[input.pace].tire *
       tuning.instruction[input.instruction].tire *
@@ -961,7 +961,7 @@ function applyRoutineSegmentState(
         )
       : 0;
   const reliable = getReliableEffects(runtime.driver);
-  const variance = getSeededVariance(
+  const variance = getCenteredSeededVariance(
     `${seed}:segment-variance`,
     tuning.segments.varianceAmplitude * (1 - reliable.varianceReduction),
   );
