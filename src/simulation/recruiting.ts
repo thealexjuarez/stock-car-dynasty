@@ -11,6 +11,8 @@ import type { GameState, SponsorLead } from '@/types/game';
 import type {
   ContractTermYears,
   OfferBreakdown,
+  OfferDecisionStatus,
+  OfferRequirement,
   ProspectRecruitingProgress,
   ProspectRevealView,
   RecruitingActionCommand,
@@ -27,6 +29,15 @@ const clampMeter = (value: number) =>
   Math.max(recruitingTuning.meterMinimum, Math.min(recruitingTuning.meterMaximum, value));
 
 const unique = <T,>(values: readonly T[]) => [...new Set(values)];
+
+function stableNumber(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
 
 function getProspectParts(state: GameState, prospectId: string) {
   const prospect = state.recruiting.prospects.find((item) => item.id === prospectId);
@@ -58,11 +69,12 @@ function hasDanaScouting(state: GameState) {
 }
 
 export function getInterestLabel(interest: number) {
-  if (interest >= 90) return 'Strong Lean';
-  if (interest >= 75) return 'Interested';
-  if (interest >= 55) return 'Open';
-  if (interest >= 35) return 'Long Shot';
-  return 'Unlikely';
+  if (interest >= 90) return 'Wants to Sign';
+  if (interest >= 75) return 'Ready to Negotiate';
+  if (interest >= 60) return 'Seriously Considering';
+  if (interest >= 40) return 'Interested';
+  if (interest >= 20) return 'Listening';
+  return 'Not Interested';
 }
 
 export function getScoutingBand(confidence: number) {
@@ -86,67 +98,84 @@ export function getActionAvailability(
   const { progress } = getProspectParts(state, prospectId);
   const definition = getRecruitingAction(actionId);
   const uses = progress.completedActionUses[actionId] ?? 0;
-  const reasons: string[] = [];
+  const weeklyReasons: string[] = [];
+  const resourceReasons: string[] = [];
+  const lifetimeReasons: string[] = [];
+  const usedReasons: string[] = [];
+  const prerequisiteReasons: string[] = [];
+  const statusReasons: string[] = [];
 
-  if (progress.signed) reasons.push('Prospect is already signed');
+  if (progress.weeklyActionCount >= recruitingTuning.maximumActionsPerProspectPerWeekend) {
+    weeklyReasons.push('Three-action weekend limit reached');
+  }
   if (state.recruiting.spendableRp < definition.rpCost) {
-    reasons.push(`Needs ${definition.rpCost} RP`);
+    resourceReasons.push(`Needs ${definition.rpCost} RP`);
   }
   if (definition.cashCost > state.team.cash) {
-    reasons.push(`Needs $${definition.cashCost.toLocaleString()} cash`);
+    resourceReasons.push(`Needs $${definition.cashCost.toLocaleString()} cash`);
   }
-  if (progress.weeklyActionCount >= recruitingTuning.maximumActionsPerProspectPerWeekend) {
-    reasons.push('Three-action weekend limit reached');
+  if (uses >= definition.maximumLifetimeUses) {
+    lifetimeReasons.push('No lifetime uses remaining');
   }
-  if (uses >= definition.maximumLifetimeUses) reasons.push('No lifetime uses remaining');
-  if (!definition.repeatable && uses > 0) reasons.push('Already completed');
+  if (!definition.repeatable && uses > 0) lifetimeReasons.push('Already completed');
   if (definition.oncePerWeekend && progress.actionsUsedThisWeekend.includes(actionId)) {
-    reasons.push('Already used this weekend');
+    usedReasons.push('Already used this weekend');
   }
 
   const prerequisites = definition.prerequisites;
   if (prerequisites.completedAll?.some((required) => !completed(progress, required))) {
-    reasons.push('Complete the required recruiting steps first');
+    prerequisiteReasons.push('Complete the required recruiting steps first');
   }
   if (
     prerequisites.completedAny &&
     !prerequisites.completedAny.some((required) => completed(progress, required))
   ) {
-    reasons.push('Complete an Owner Call or Crew Chief Call first');
+    prerequisiteReasons.push('Complete an Owner Call or Crew Chief Call first');
   }
   if (
     prerequisites.minimumScouting !== undefined &&
-    progress.scoutingConfidence < prerequisites.minimumScouting
+    progress.scoutingKnowledge < prerequisites.minimumScouting
   ) {
-    reasons.push(`Scouting confidence must reach ${prerequisites.minimumScouting}`);
+    prerequisiteReasons.push(`Scouting Knowledge must reach ${prerequisites.minimumScouting}`);
   }
   if (
     prerequisites.minimumInterest !== undefined &&
     progress.interest < prerequisites.minimumInterest
   ) {
-    reasons.push(`Team Interest must reach ${prerequisites.minimumInterest}`);
+    prerequisiteReasons.push(`Apex Interest must reach ${prerequisites.minimumInterest}`);
   }
   if (
     prerequisites.minimumEngagement !== undefined &&
     progress.engagement < prerequisites.minimumEngagement
   ) {
-    reasons.push(`Engagement must reach ${prerequisites.minimumEngagement}`);
+    prerequisiteReasons.push(`Prospect Engagement must reach ${prerequisites.minimumEngagement}`);
   }
   if (prerequisites.contactEstablished && !completed(progress, 'text-dm')) {
-    reasons.push('Make contact first');
+    prerequisiteReasons.push('Make contact first');
   }
   if (
     prerequisites.activeSponsor &&
     !state.sponsors.some((sponsor) => sponsor.active)
   ) {
-    reasons.push('An active team sponsor is required');
+    prerequisiteReasons.push('An active team sponsor is required');
   }
   if (prerequisites.openReserveSlot && state.recruiting.reserveDriver) {
-    reasons.push('Reserve / Development slot is filled');
+    statusReasons.push('Reserve / Development slot is filled');
   }
-  if (actionId === 'contract-offer' && progress.offerCooldown) {
-    reasons.push('Offer window reopens after the next settled weekend');
+  if (progress.signed) statusReasons.push('Prospect is already signed');
+  if (progress.signedByTeamId) statusReasons.push('Prospect signed with another team');
+  if (state.recruiting.reserveDriver && actionId === 'contract-offer') {
+    statusReasons.push('Reserve / Development slot is filled');
   }
+
+  const reasons = unique([
+    ...weeklyReasons,
+    ...resourceReasons,
+    ...lifetimeReasons,
+    ...usedReasons,
+    ...prerequisiteReasons,
+    ...statusReasons,
+  ]);
 
   return {
     available: reasons.length === 0,
@@ -281,7 +310,7 @@ export function applyRecruitingAction(
   const useIndex = availability.uses + 1;
   const nextProgress: ProspectRecruitingProgress = {
     ...progress,
-    scoutingConfidence: clampMeter(progress.scoutingConfidence + effects.scouting),
+    scoutingKnowledge: clampMeter(progress.scoutingKnowledge + effects.scouting),
     interest: clampMeter(progress.interest + effects.interest),
     engagement: clampMeter(progress.engagement + effects.engagement),
     completedActionUses: {
@@ -346,37 +375,6 @@ export function getRelationshipDepth(progress: ProspectRecruitingProgress) {
   );
 }
 
-function salaryFit(offered: number, demand: number) {
-  const ratio = offered / demand;
-  if (ratio < 0.85) return -25;
-  if (ratio < 0.95) return -12;
-  if (ratio < 1.05) return 0;
-  if (ratio < 1.15) return 8;
-  return 15;
-}
-
-function termFit(offered: ContractTermYears, preferred: ContractTermYears) {
-  if (offered < preferred) return (preferred - offered) * -8;
-  if (offered === preferred) return 3;
-  return 5;
-}
-
-function roleFit(prospect: RecruitingProspect) {
-  if (prospect.roleExpectation === 'Reserve / Development') return 8;
-  if (prospect.roleExpectation === 'Active Seat') return -20;
-  return 0;
-}
-
-function pressureModifier(pressure: RecruitingProspect['competingPressure']) {
-  return pressure === 'High' ? -10 : pressure === 'Medium' ? -5 : 0;
-}
-
-function staffBoostedPackage(value: number, enabled: boolean) {
-  if (!enabled || value <= 0) return { value, bonus: 0 };
-  const boosted = Math.max(value + 1, Math.round(value * 1.1));
-  return { value: boosted, bonus: boosted - value };
-}
-
 function unmetDealbreakers(state: GameState, prospect: RecruitingProspect) {
   const unmet: string[] = [];
   if (prospect.blockingDealbreaker === 'active-seat-only') {
@@ -411,44 +409,156 @@ export function evaluateContractOffer(
   termYears: ContractTermYears,
 ): OfferBreakdown {
   const { prospect, progress } = getProspectParts(state, prospectId);
-  const hasStaff = hasDevelopmentStaff(state);
-  const salary = staffBoostedPackage(salaryFit(annualSalary, prospect.salaryDemand), hasStaff);
-  const term = staffBoostedPackage(termFit(termYears, prospect.preferredTerm), hasStaff);
-  const role = staffBoostedPackage(roleFit(prospect), hasStaff);
-  const reputationFit = Math.max(
-    -10,
-    Math.min(10, Math.round((state.team.reputation - prospect.minimumReputation) / 2)),
+  const dealbreakers = unmetDealbreakers(state, prospect);
+  const fullEvaluation = progress.scoutingKnowledge >= 76;
+  const seatPitchMet = completed(progress, 'pitch-seat');
+  const developmentPromiseNeeded = prospect.dealbreakers.some((item) =>
+    /development|review|sim access/i.test(item),
   );
-  const visibilityFit = Math.max(
-    -3,
-    Math.min(5, Math.round((state.recruiting.visibility - 50) / 10)),
-  );
-  const competingPressure = pressureModifier(prospect.competingPressure);
+  const developmentPromiseMet =
+    !developmentPromiseNeeded ||
+    completed(progress, 'pitch-development') ||
+    completed(progress, 'full-development-plan');
+  const roleMet =
+    prospect.roleExpectation !== 'Active Seat' && developmentPromiseMet;
+  const validSalary = Number.isFinite(annualSalary) && annualSalary >= prospect.salaryDemand;
+  const termMet = termYears >= prospect.preferredTerm;
+  const signingBonus = getSigningBonus(annualSalary);
+  const requirements: OfferRequirement[] = [
+    {
+      id: 'availability',
+      label: 'Prospect available',
+      met:
+        prospect.availability === 'Available' &&
+        !progress.signed &&
+        !progress.signedByTeamId,
+      detail: progress.signed
+        ? 'Already signed by Apex.'
+        : progress.signedByTeamId
+          ? 'This driver signed with another team.'
+          : 'Still available to recruit.',
+    },
+    {
+      id: 'scouting',
+      label: 'Full Evaluation',
+      met: progress.scoutingKnowledge >= 76,
+      detail: `${progress.scoutingKnowledge}/76 Scouting Knowledge`,
+    },
+    {
+      id: 'interest',
+      label: 'Contract Readiness',
+      met:
+        fullEvaluation &&
+        progress.interest >= 75 &&
+        progress.interest >= progress.signingThreshold,
+      detail: fullEvaluation
+        ? `${progress.interest}/${progress.signingThreshold} Apex Interest`
+        : `${progress.interest} Apex Interest; signing line revealed at Full Evaluation`,
+    },
+    {
+      id: 'seat-pitch',
+      label: 'Seat path explained',
+      met: seatPitchMet,
+      detail: seatPitchMet ? 'Reserve / Development path recorded.' : 'Complete Pitch Seat Opportunity.',
+    },
+    {
+      id: 'role',
+      label: 'Role accepted',
+      met: fullEvaluation && roleMet,
+      detail: !fullEvaluation
+        ? 'Complete the Full Evaluation to confirm role expectations.'
+        : prospect.roleExpectation === 'Active Seat'
+        ? 'This driver requires an active seat.'
+        : developmentPromiseMet
+          ? 'Reserve / Development role is acceptable.'
+          : 'A development promise must be made first.',
+    },
+    {
+      id: 'salary',
+      label: 'Salary demand met',
+      met: fullEvaluation && validSalary,
+      detail: fullEvaluation
+        ? `$${Math.max(0, annualSalary).toLocaleString()} offered · $${prospect.salaryDemand.toLocaleString()} required`
+        : 'Complete the Full Evaluation to learn the salary demand.',
+    },
+    {
+      id: 'term',
+      label: 'Term preference met',
+      met: fullEvaluation && termMet,
+      detail: fullEvaluation
+        ? `${termYears}-year offer · ${prospect.preferredTerm}-year preference`
+        : 'Complete the Full Evaluation to learn the preferred term.',
+    },
+    {
+      id: 'dealbreakers',
+      label: 'Dealbreakers cleared',
+      met: fullEvaluation && dealbreakers.length === 0,
+      detail: fullEvaluation
+        ? dealbreakers[0] ?? 'No hard dealbreaker blocks this offer.'
+        : 'Complete the Full Evaluation to uncover dealbreakers.',
+    },
+    {
+      id: 'roster',
+      label: 'Roster path open',
+      met: !state.recruiting.reserveDriver,
+      detail: state.recruiting.reserveDriver
+        ? 'The Reserve / Development slot is already filled.'
+        : 'One Reserve / Development slot is open.',
+    },
+    {
+      id: 'cash',
+      label: 'Signing cash available',
+      met: state.team.cash >= signingBonus,
+      detail: `$${signingBonus.toLocaleString()} signing bonus`,
+    },
+    {
+      id: 'rp',
+      label: 'Recruiting Points available',
+      met: state.recruiting.spendableRp >= getRecruitingAction('contract-offer').rpCost,
+      detail: `${getRecruitingAction('contract-offer').rpCost} RP required`,
+    },
+    {
+      id: 'weekly-limit',
+      label: 'Weekend action available',
+      met: progress.weeklyActionCount < recruitingTuning.maximumActionsPerProspectPerWeekend &&
+        !progress.actionsUsedThisWeekend.includes('contract-offer'),
+      detail: 'Contract offers use one recruiting action.',
+    },
+  ];
+  const failed = new Set(requirements.filter((item) => !item.met).map((item) => item.id));
+  let status: OfferDecisionStatus = 'Will Sign';
+  if (failed.has('availability')) status = 'Not Available';
+  else if (failed.has('scouting')) status = 'Needs Full Evaluation';
+  else if (failed.has('dealbreakers')) status = 'Dealbreaker Not Met';
+  else if (failed.has('role')) status = 'Role Unacceptable';
+  else if (failed.has('salary')) status = 'Salary Too Low';
+  else if (failed.has('term')) status = 'Terms Unacceptable';
+  else if (failed.has('roster')) status = 'Roster Slot Unavailable';
+  else if (failed.has('seat-pitch')) status = 'Needs Seat Pitch';
+  else if (failed.has('interest')) status = 'Needs More Interest';
+  else if (failed.has('cash')) status = 'Needs Signing Cash';
+  else if (failed.has('rp')) status = 'Needs Recruiting Points';
+  else if (failed.has('weekly-limit')) status = 'Weekend Limit Reached';
+  else if (requirements.some((item) => !item.met)) status = 'Not Available';
+  const willSign = requirements.every((item) => item.met);
   const relationshipDepth = getRelationshipDepth(progress);
-  const developmentStaffBonus = salary.bonus + term.bonus + role.bonus;
-  const total =
-    progress.interest +
-    salary.value +
-    term.value +
-    role.value +
-    relationshipDepth +
-    reputationFit +
-    visibilityFit +
-    competingPressure;
 
   return {
     interest: progress.interest,
-    salaryFit: salary.value,
-    termFit: term.value,
-    roleFit: role.value,
+    salaryFit: validSalary ? 1 : -1,
+    termFit: termMet ? 1 : -1,
+    roleFit: roleMet ? 1 : -1,
     relationshipDepth,
-    reputationFit,
-    visibilityFit,
-    competingPressure,
-    developmentStaffBonus,
-    total,
-    threshold: recruitingTuning.acceptanceThreshold,
-    unmetDealbreakers: unmetDealbreakers(state, prospect),
+    reputationFit: 0,
+    visibilityFit: 0,
+    competingPressure: 0,
+    developmentStaffBonus: 0,
+    total: progress.interest,
+    threshold: progress.signingThreshold,
+    unmetDealbreakers: dealbreakers,
+    status,
+    willSign,
+    requirements,
   };
 }
 
@@ -461,20 +571,16 @@ export function getOfferAvailability(
   const base = getActionAvailability(state, prospectId, 'contract-offer');
   const breakdown = evaluateContractOffer(state, prospectId, annualSalary, termYears);
   const signingBonus = getSigningBonus(annualSalary);
-  const wouldAccept =
-    breakdown.total >= recruitingTuning.acceptanceThreshold &&
-    breakdown.unmetDealbreakers.length === 0;
-  const reasons = [...base.reasons];
-  if (!Number.isFinite(annualSalary) || annualSalary <= 0) reasons.push('Enter a valid annual salary');
-  if (wouldAccept && state.team.cash < signingBonus) {
-    reasons.push(`Needs $${signingBonus.toLocaleString()} signing cash`);
-  }
+  const reasons = unique([
+    ...base.reasons,
+    ...breakdown.requirements.filter((item) => !item.met).map((item) => item.detail),
+  ]);
   return {
-    available: reasons.length === 0,
+    available: base.available && breakdown.willSign,
     reasons: unique(reasons),
     breakdown,
     signingBonus,
-    wouldAccept,
+    wouldAccept: breakdown.willSign,
   };
 }
 
@@ -530,8 +636,8 @@ export function applyRecruitingOffer(
   );
   if (!availability.available) throw new Error(availability.reasons[0]);
 
-  const accepted = availability.wouldAccept;
-  const cashCharged = accepted ? availability.signingBonus : 0;
+  const accepted = true;
+  const cashCharged = availability.signingBonus;
   const offerRpCost = getRecruitingAction('contract-offer').rpCost;
   const nextProgress: ProspectRecruitingProgress = {
     ...progress,
@@ -542,8 +648,8 @@ export function applyRecruitingOffer(
     actionsUsedThisWeekend: [...progress.actionsUsedThisWeekend, 'contract-offer'],
     weeklyActionCount: progress.weeklyActionCount + 1,
     relationshipPaths: unique([...progress.relationshipPaths, 'Contract']),
-    offerCooldown: !accepted,
-    signed: accepted,
+    offerCooldown: false,
+    signed: true,
     recruitingCostToDate: {
       rp: progress.recruitingCostToDate.rp + offerRpCost,
       cash: progress.recruitingCostToDate.cash + cashCharged,
@@ -579,9 +685,7 @@ export function applyRecruitingOffer(
         ...state.recruiting.processedTransactionIds,
         command.transactionId,
       ],
-      reserveDriver: accepted
-        ? reserveFromProspect(prospect, command)
-        : state.recruiting.reserveDriver,
+      reserveDriver: reserveFromProspect(prospect, command),
     },
   };
 }
@@ -590,9 +694,118 @@ export function getRecruitingSettlementId(result: Pick<RaceResult, 'raceId' | 's
   return `recruiting-rp:${result.raceId}:${result.seed}`;
 }
 
+function advanceRivalCampaign(
+  state: GameState,
+  prospect: RecruitingProspect,
+  progress: ProspectRecruitingProgress,
+  transactionId: string,
+  settlementSeason: number,
+  settlementWeek: number,
+): ProspectRecruitingProgress {
+  if (progress.signed || progress.signedByTeamId) return progress;
+  const organizations = new Map(
+    state.raceField.organizations.map((organization) => [organization.id, organization]),
+  );
+  let rivals = progress.rivals.map((rival) => {
+    const organization = organizations.get(rival.teamId);
+    const tierGain =
+      organization?.tier === 'Elite' ? 4 :
+      organization?.tier === 'Strong' ? 3 :
+      organization?.tier === 'Midfield' ? 2 : 1;
+    const manufacturerGain = organization &&
+      prospect.manufacturerFit.includes(organization.manufacturerId) ? 1 : 0;
+    const weeklyChange = Math.max(
+      1,
+      Math.min(
+        8,
+        tierGain +
+          manufacturerGain +
+          getSeededVariance(`${transactionId}:${prospect.id}:${rival.teamId}`, 2),
+      ),
+    );
+    return {
+      ...rival,
+      previousInterest: rival.interest,
+      weeklyChange,
+      interest: clampMeter(rival.interest + weeklyChange),
+    };
+  });
+
+  const maximumRivals =
+    prospect.competingPressure === 'High' ? 4 :
+    prospect.competingPressure === 'Medium' ? 3 : 1;
+  const shouldEnter =
+    rivals.length < maximumRivals &&
+    stableNumber(`${transactionId}:${prospect.id}:new-rival`) % 4 === 0;
+  let entrantName: string | null = null;
+  if (shouldEnter) {
+    const existing = new Set(rivals.map((rival) => rival.teamId));
+    const entrant = state.raceField.organizations
+      .filter((organization) => !organization.isPlayerTeam && !existing.has(organization.id))
+      .sort(
+        (left, right) =>
+          stableNumber(`${prospect.id}:${left.id}:entrant`) -
+          stableNumber(`${prospect.id}:${right.id}:entrant`),
+      )[0];
+    if (entrant) {
+      const interest = Math.max(18, Math.min(50, progress.interest - 12));
+      rivals = [
+        ...rivals,
+        {
+          teamId: entrant.id,
+          interest,
+          previousInterest: interest,
+          weeklyChange: 0,
+          enteredSeason: settlementSeason,
+          enteredWeek: settlementWeek,
+        },
+      ];
+      entrantName = entrant.name;
+    }
+  }
+
+  const leader = [...rivals].sort(
+    (left, right) =>
+      right.interest - left.interest || left.teamId.localeCompare(right.teamId),
+  )[0];
+  const signedByTeamId =
+    leader && leader.interest >= progress.signingThreshold ? leader.teamId : undefined;
+  const leaderName = leader ? organizations.get(leader.teamId)?.name ?? 'Another team' : null;
+  const headline = signedByTeamId
+    ? `${leaderName} closed the deal with ${prospect.name}.`
+    : entrantName
+      ? `${entrantName} joined the chase for ${prospect.name}.`
+      : leaderName
+        ? `${leaderName} leads the outside interest in ${prospect.name}.`
+        : `${prospect.name} remains an open recruiting opportunity.`;
+
+  return {
+    ...progress,
+    rivals,
+    signedByTeamId,
+    battleHistory: [
+      ...progress.battleHistory,
+      {
+        id: `${transactionId}:${prospect.id}:battle`,
+        season: settlementSeason,
+        week: settlementWeek,
+        headline,
+        details: rivals.map((rival) => {
+          const name = organizations.get(rival.teamId)?.name ?? rival.teamId;
+          return `${name} ${rival.weeklyChange > 0 ? `+${rival.weeklyChange}` : 'held steady'}`;
+        }),
+      },
+    ].slice(-10),
+  };
+}
+
 export function applyRecruitingWeekendSettlement(
   state: GameState,
   result: RaceResult,
+  settlementContext: { season: number; week: number } = {
+    season: state.season,
+    week: state.week,
+  },
 ): GameState {
   const transactionId = getRecruitingSettlementId(result);
   if (state.recruiting.processedTransactionIds.includes(transactionId)) return state;
@@ -606,15 +819,28 @@ export function applyRecruitingWeekendSettlement(
         transactionId,
       ],
       campaigns: Object.fromEntries(
-        Object.entries(state.recruiting.campaigns).map(([id, progress]) => [
-          id,
-          {
-            ...progress,
-            weeklyActionCount: 0,
-            actionsUsedThisWeekend: [],
-            offerCooldown: false,
-          },
-        ]),
+        Object.entries(state.recruiting.campaigns).map(([id, progress]) => {
+          const prospect = state.recruiting.prospects.find((item) => item.id === id);
+          const advanced = prospect
+            ? advanceRivalCampaign(
+                state,
+                prospect,
+                progress,
+                transactionId,
+                settlementContext.season,
+                settlementContext.week,
+              )
+            : progress;
+          return [
+            id,
+            {
+              ...advanced,
+              weeklyActionCount: 0,
+              actionsUsedThisWeekend: [],
+              offerCooldown: false,
+            },
+          ];
+        }),
       ),
     },
   };
@@ -642,16 +868,113 @@ function getKnownTrackFit(prospect: RecruitingProspect, exactKnown: boolean) {
     .map(([trackType]) => trackType as RecruitingProspect['trackStrengths'][number]);
 }
 
+function selectRecruitingBattle(
+  state: GameState,
+  progress: ProspectRecruitingProgress,
+  knowledge: number,
+) {
+  const organizationNames = new Map(
+    state.raceField.organizations.map((organization) => [
+      organization.id,
+      organization.name,
+    ]),
+  );
+  const exactTeams = [
+    {
+      id: 'apex',
+      teamId: state.team.id,
+      teamName: state.team.name,
+      isApex: true,
+      interest: progress.interest,
+      weeklyChange: 0,
+    },
+    ...progress.rivals.map((rival) => ({
+      id: rival.teamId,
+      teamId: rival.teamId,
+      teamName: organizationNames.get(rival.teamId) ?? 'Outside team',
+      isApex: false,
+      interest: rival.interest,
+      weeklyChange: rival.weeklyChange,
+    })),
+  ].sort(
+    (left, right) =>
+      right.interest - left.interest || left.id.localeCompare(right.id),
+  );
+  const apexRank = exactTeams.findIndex((team) => team.isApex) + 1;
+  const leader = exactTeams[0];
+  const publicTeams = knowledge < 26
+    ? [
+        {
+          id: 'apex',
+          teamId: state.team.id,
+          teamName: state.team.name,
+          isApex: true,
+          interest: progress.interest,
+          interestRange: null,
+          rank: null,
+          weeklyChange: 0,
+          status: 'Unknown' as const,
+        },
+        ...progress.rivals.slice(0, 4).map((_, index) => ({
+          id: `unknown-${index}`,
+          teamId: null,
+          teamName: 'Unknown team',
+          isApex: false,
+          interest: null,
+          interestRange: null,
+          rank: null,
+          weeklyChange: null,
+          status: 'Unknown' as const,
+        })),
+      ]
+    : exactTeams.slice(0, 5).map((team, index) => {
+        const gap = leader.interest - team.interest;
+        return {
+          id: team.id,
+          teamId: team.teamId,
+          teamName: team.teamName,
+          isApex: team.isApex,
+          interest: knowledge >= 51 || team.isApex ? team.interest : null,
+          interestRange: knowledge >= 51 || team.isApex
+            ? null
+            : [
+                Math.max(0, team.interest - 6),
+                Math.min(100, team.interest + 6),
+              ] as [number, number],
+          rank: knowledge >= 51 || team.isApex ? index + 1 : null,
+          weeklyChange: knowledge >= 51 || team.isApex ? team.weeklyChange : null,
+          status:
+            index === 0 ? 'Leading' as const :
+            gap <= 5 ? 'Close' as const :
+            gap > 15 ? 'Falling Behind' as const : 'Interested' as const,
+        };
+      });
+
+  return {
+    leaderName: knowledge >= 26 ? leader.teamName : null,
+    apexRank,
+    competitionSummary: progress.rivals.length === 0
+      ? 'No outside team is pressing yet.'
+      : knowledge < 26
+        ? `${progress.rivals.length} outside ${progress.rivals.length === 1 ? 'team is' : 'teams are'} showing interest.`
+        : `${progress.rivals.length} outside ${progress.rivals.length === 1 ? 'team is' : 'teams are'} in the recruiting battle.`,
+    teams: publicTeams,
+    latestHeadline: knowledge >= 51
+      ? progress.battleHistory.at(-1)?.headline ?? null
+      : null,
+  };
+}
+
 export function selectProspectReveal(
   state: GameState,
   prospectId: string,
 ): ProspectRevealView {
   const { prospect, progress } = getProspectParts(state, prospectId);
-  const band = getScoutingBand(progress.scoutingConfidence);
+  const band = getScoutingBand(progress.scoutingKnowledge);
   const bandId = band.id as ScoutingBandId;
-  const profileKnown = progress.scoutingConfidence >= 26;
-  const evaluationKnown = progress.scoutingConfidence >= 51;
-  const exactKnown = progress.scoutingConfidence >= 76;
+  const profileKnown = progress.scoutingKnowledge >= 26;
+  const evaluationKnown = progress.scoutingKnowledge >= 51;
+  const exactKnown = progress.scoutingKnowledge >= 76;
   const accuracy = revealAccuracy(prospect);
   const accuracyMultiplier = 1 - accuracy / 100;
   const overallWidth = Math.max(1, 5 * accuracyMultiplier);
@@ -665,8 +988,12 @@ export function selectProspectReveal(
     name: prospect.name,
     age: prospect.age,
     racingBackground: prospect.racingBackground,
-    availability: progress.signed ? 'Signed' : prospect.availability,
-    scoutingConfidence: progress.scoutingConfidence,
+    availability: progress.signed
+      ? 'Signed'
+      : progress.signedByTeamId
+        ? 'Unavailable'
+        : prospect.availability,
+    scoutingKnowledge: progress.scoutingKnowledge,
     scoutingBand: bandId,
     overall: exactKnown ? prospect.overall : null,
     overallRange: exactKnown ? null : estimateRange(prospect.overall, overallWidth),
@@ -693,8 +1020,21 @@ export function selectProspectReveal(
         ]
       : null,
     preferredTerm: exactKnown ? prospect.preferredTerm : null,
-    interest: evaluationKnown ? progress.interest : null,
-    interestLabel: evaluationKnown ? getInterestLabel(progress.interest) : null,
+    interest: progress.interest,
+    interestLabel: getInterestLabel(progress.interest),
+    signingThreshold: exactKnown ? progress.signingThreshold : null,
+    signingThresholdKnown: exactKnown,
+    contractReadiness: evaluateContractOffer(
+      state,
+      prospectId,
+      prospect.salaryDemand,
+      prospect.preferredTerm,
+    ).status,
+    recruitingBattle: selectRecruitingBattle(
+      state,
+      progress,
+      progress.scoutingKnowledge,
+    ),
     knownInterestFactors: evaluationKnown
       ? [
           `Recruiting Pull ${state.team.recruitingPull}`,
@@ -729,6 +1069,38 @@ export function selectProspectReveal(
 }
 
 export function getRecommendedRecruitingAction(state: GameState, prospectId: string) {
+  const { prospect, progress } = getProspectParts(state, prospectId);
+  if (progress.signed || progress.signedByTeamId) return undefined;
+  const offer = evaluateContractOffer(
+    state,
+    prospectId,
+    prospect.salaryDemand,
+    prospect.preferredTerm,
+  );
+  if (offer.willSign) return getRecruitingAction('contract-offer');
+  const preferredGroups: RecruitingActionId[][] = progress.scoutingKnowledge < 51
+    ? [
+        ['scout-report', 'watch-race-tape', 'background-check', 'film-session'],
+        ['text-dm', 'crew-chief-call', 'owner-call'],
+      ]
+    : progress.interest < progress.signingThreshold
+      ? [
+          ['pitch-development', 'pitch-stability', 'shop-tour', 'pitch-growth'],
+          ['driver-highlight', 'behind-scenes-feature', 'spotlight-video'],
+        ]
+      : [
+          ['pitch-seat', 'full-development-plan', 'manufacturer-pitch'],
+          ['sim-session', 'race-weekend-visit', 'private-test-day'],
+        ];
+  for (const actionIds of preferredGroups) {
+    const match = actionIds
+      .map((actionId) => getRecruitingAction(actionId))
+      .find((definition) =>
+        definition.id !== 'contract-offer' &&
+        getActionAvailability(state, prospectId, definition.id).available,
+      );
+    if (match) return match;
+  }
   return recruitingActions.find(
     (definition) =>
       definition.id !== 'contract-offer' &&

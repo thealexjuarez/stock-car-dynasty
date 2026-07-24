@@ -74,7 +74,7 @@ export function DriverProfileScreen({ driverId }: { driverId: string }) {
       </AppCard>
 
       <AppCard>
-        <AppText variant="title">Growth Modifiers</AppText>
+        <AppText variant="title">Growth Support</AppText>
         {driver.growthModifiers.map((modifier) => (
           <AppRow key={modifier} label={modifier} />
         ))}

@@ -48,7 +48,7 @@ const tracks = trackInfo.map(([id,name,type,keyStats,tireWear,cautionRisk,strate
 const calendar = trackInfo.map(([id,name], index) => ({ id:`race-${index+1}`, round:index+1, week:index+1, name:`${name} ERCA ${index+1}`, trackId:`track-${id}` }));
 
 export const starterGameState: GameState = {
-  stateVersion: 4,
+  stateVersion: 5,
   sanctioningBody:'NSCRA', series:'ERCA Stock Series', season:1, week:1, currentDate:'May 1, 2028',
   team:{ id:'team-apex-motorsports', name:'Apex Motorsports', cash:525000, series:'ERCA Stock Series', sanctioningBody:'NSCRA', manufacturerId:apexStartingManufacturerId, reputation:46, brandPower:44, recruitingPull:45, sponsorAppeal:48, carPerformance:54, pitCrewQuality:42, engineeringQuality:46, garageEfficiency:45, morale:55 },
   drivers:starterDrivers,
@@ -59,7 +59,8 @@ export const starterGameState: GameState = {
   ],
   staff:[
     { id:'staff-ray-hollis',name:'Ray Hollis',role:'Crew Chief',quality:51,trait:'Development-Minded',salary:38000,effect:'+10% development recruiting actions; young driver growth; average race strategy.',active:true },
-    { id:'staff-mia-torres',name:'Mia Torres',role:'Social Media Manager',quality:48,trait:'Local Buzz Builder',salary:28000,effect:'+10% social recruiting actions; +5% Brand Power from positive social events.',active:true },
+    { id:'staff-ava-larkin',name:'Ava Larkin',role:'Social Media Manager',quality:48,trait:'Local Buzz Builder',salary:28000,effect:'+10% eligible prospect social actions.',active:true },
+    { id:'staff-marco-desoto',name:'Marco DeSoto',role:'Engineer',quality:46,trait:'Setup Translator',salary:32000,effect:'Turns practice feedback into clear setup direction.',active:true },
     { id:'staff-hank-brewer',name:'Hank Brewer',role:'Lead Mechanic',quality:46,trait:'Budget Fixer',salary:32000,effect:'-10% eligible repair costs and weekend operating cost.',active:true },
     { id:'staff-dana-pierce',name:'Dana Pierce',role:'Regional Scout',quality:44,trait:'Short Track Network',salary:26000,effect:'+10% scouting effectiveness on short-track and regional prospects.',active:true },
   ],

@@ -68,6 +68,26 @@ export type ProspectRoleExpectation =
   | 'Active Seat';
 export type ContractTermYears = 1 | 2 | 3;
 export type ScoutingBandId = 'basic' | 'profile' | 'evaluation' | 'exact';
+export type ProspectTier = 'Hidden' | 'Ordinary' | 'Strong' | 'Elite';
+export type RecruitingBattleStatus =
+  | 'Leading'
+  | 'Close'
+  | 'Interested'
+  | 'Falling Behind';
+export type OfferDecisionStatus =
+  | 'Will Sign'
+  | 'Needs More Interest'
+  | 'Dealbreaker Not Met'
+  | 'Role Unacceptable'
+  | 'Salary Too Low'
+  | 'Terms Unacceptable'
+  | 'Roster Slot Unavailable'
+  | 'Needs Signing Cash'
+  | 'Needs Recruiting Points'
+  | 'Weekend Limit Reached'
+  | 'Needs Full Evaluation'
+  | 'Needs Seat Pitch'
+  | 'Not Available';
 
 export type RecruitingPrerequisites = {
   completedAll?: RecruitingActionId[];
@@ -176,6 +196,45 @@ export type OfferBreakdown = {
   total: number;
   threshold: number;
   unmetDealbreakers: string[];
+  status: OfferDecisionStatus;
+  willSign: boolean;
+  requirements: OfferRequirement[];
+};
+
+export type OfferRequirement = {
+  id:
+    | 'availability'
+    | 'scouting'
+    | 'interest'
+    | 'seat-pitch'
+    | 'role'
+    | 'salary'
+    | 'term'
+    | 'dealbreakers'
+    | 'roster'
+    | 'cash'
+    | 'rp'
+    | 'weekly-limit';
+  label: string;
+  met: boolean;
+  detail: string;
+};
+
+export type RivalRecruitingProgress = {
+  teamId: string;
+  interest: number;
+  previousInterest: number;
+  weeklyChange: number;
+  enteredSeason: number;
+  enteredWeek: number;
+};
+
+export type RecruitingBattleHistoryEntry = {
+  id: string;
+  season: number;
+  week: number;
+  headline: string;
+  details: string[];
 };
 
 export type RecruitingOfferHistoryEntry = {
@@ -193,8 +252,12 @@ export type RecruitingOfferHistoryEntry = {
 
 export type ProspectRecruitingProgress = {
   prospectId: string;
-  scoutingConfidence: number;
+  scoutingKnowledge: number;
   interest: number;
+  signingThreshold: number;
+  prospectTier: ProspectTier;
+  rivals: RivalRecruitingProgress[];
+  battleHistory: RecruitingBattleHistoryEntry[];
   engagement: number;
   completedActionUses: Partial<Record<RecruitingActionId, number>>;
   actionsUsedThisWeekend: RecruitingActionId[];
@@ -204,6 +267,7 @@ export type ProspectRecruitingProgress = {
   offerHistory: RecruitingOfferHistoryEntry[];
   offerCooldown: boolean;
   signed: boolean;
+  signedByTeamId?: string;
   recruitingCostToDate: { rp: number; cash: number };
 };
 
@@ -260,7 +324,7 @@ export type ProspectRevealView = {
   age: number;
   racingBackground: string;
   availability: ProspectAvailability;
-  scoutingConfidence: number;
+  scoutingKnowledge: number;
   scoutingBand: ScoutingBandId;
   overall: number | null;
   overallRange: [number, number] | null;
@@ -273,8 +337,12 @@ export type ProspectRevealView = {
   salaryDemand: number | null;
   salaryRange: [number, number] | null;
   preferredTerm: ContractTermYears | null;
-  interest: number | null;
-  interestLabel: string | null;
+  interest: number;
+  interestLabel: string;
+  signingThreshold: number | null;
+  signingThresholdKnown: boolean;
+  contractReadiness: OfferDecisionStatus;
+  recruitingBattle: RecruitingBattleView;
   knownInterestFactors: string[];
   sponsorInformation: string | null;
   roleExpectation: ProspectRoleExpectation | null;
@@ -285,4 +353,24 @@ export type ProspectRevealView = {
   engagement: number;
   relationshipPaths: RelationshipPath[];
   recruitingCostToDate: { rp: number; cash: number };
+};
+
+export type RecruitingBattleTeamView = {
+  id: string;
+  teamId: string | null;
+  teamName: string;
+  isApex: boolean;
+  interest: number | null;
+  interestRange: [number, number] | null;
+  rank: number | null;
+  weeklyChange: number | null;
+  status: RecruitingBattleStatus | 'Unknown';
+};
+
+export type RecruitingBattleView = {
+  leaderName: string | null;
+  apexRank: number;
+  competitionSummary: string;
+  teams: RecruitingBattleTeamView[];
+  latestHeadline: string | null;
 };

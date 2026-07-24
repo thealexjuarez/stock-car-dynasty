@@ -24,7 +24,7 @@ export function TeamScreen() {
         <AppText variant="eyebrow" tone="accent">Team Operations</AppText>
         <AppText variant="hero">{team.name}</AppText>
         <AppText tone="muted">
-          Lower mid-pack ERCA team · {manufacturer.displayName} · two equal entries
+          Building through the ERCA midfield · {manufacturer.displayName} · two equal entries
         </AppText>
       </View>
 
@@ -77,7 +77,7 @@ export function TeamScreen() {
               <AppRow label="Contract" detail={`${reserveDriver.termYears} years · $${reserveDriver.annualSalary.toLocaleString()}/year`} />
               <AppRow label="Role" detail={reserveDriver.role} />
               <AppText variant="caption" tone="soft">
-                Promotion, release, active-seat assignment, and annual payroll are reserved for later bundles.
+                Reserve drivers stay out of the race lineup until Apex assigns an active seat.
               </AppText>
             </>
           ) : (

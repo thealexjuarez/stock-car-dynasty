@@ -75,7 +75,6 @@ export const recruitingTuning = {
   staffEffectivenessPercent: 10,
   danaScoutingPercent: 10,
   privateTestDayCashCost: 20_000,
-  acceptanceThreshold: 75,
   signingBonusPercent: 10,
   minimumSigningBonus: 5_000,
   maximumOfferAttempts: 3,

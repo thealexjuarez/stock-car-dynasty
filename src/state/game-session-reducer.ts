@@ -84,6 +84,11 @@ function cloneGameState(state: GameState): GameState {
           id,
           {
             ...progress,
+            rivals: progress.rivals.map((rival) => ({ ...rival })),
+            battleHistory: progress.battleHistory.map((entry) => ({
+              ...entry,
+              details: [...entry.details],
+            })),
             completedActionUses: { ...progress.completedActionUses },
             actionsUsedThisWeekend: [...progress.actionsUsedThisWeekend],
             actionHistory: progress.actionHistory.map((entry) => ({
@@ -96,6 +101,9 @@ function cloneGameState(state: GameState): GameState {
               breakdown: {
                 ...entry.breakdown,
                 unmetDealbreakers: [...entry.breakdown.unmetDealbreakers],
+                requirements: entry.breakdown.requirements.map((requirement) => ({
+                  ...requirement,
+                })),
               },
             })),
             recruitingCostToDate: { ...progress.recruitingCostToDate },

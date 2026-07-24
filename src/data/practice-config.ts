@@ -27,7 +27,7 @@ export const practiceChoices = [
   {
     id: 'driver-feedback',
     name: 'Driver Feedback',
-    intent: 'Build confidence in the baseline',
+    intent: 'Build driver confidence in the setup',
     description: 'Use extra feedback runs to make both cars easier to trust.',
     effectSummary: '+1 qualifying and race pace; the largest confidence gain.',
     ratingEmphasis: ['Consistency', 'Awareness', 'Racecraft'],

@@ -145,7 +145,7 @@ export function RaceResultsScreen() {
           <AppText variant="title">Operating Cost Shortfall</AppText>
           <AppText tone="muted">
             The team is short {money.format(settlement.operatingCostShortfall)}.
-            Cash remains at $0 and the shortfall is recorded safely.
+            Team cash stays at $0 until future earnings cover the gap.
           </AppText>
         </AppCard>
       ) : null}

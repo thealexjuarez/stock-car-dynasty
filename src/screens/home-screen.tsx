@@ -75,8 +75,8 @@ export function HomeScreen() {
           </View>
           <AppText tone="muted">
             The last weekend closed {money.format(lastSettlement.operatingCostShortfall)} short.
-            Team cash remains valid at {money.format(state.team.cash)} while the
-            financial issue awaits a future resolution system.
+            Apex has {money.format(state.team.cash)} available. Clear the shortfall
+            before taking on another major expense.
           </AppText>
         </AppCard>
       ) : null}
