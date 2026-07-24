@@ -25,6 +25,11 @@ import { postSettlementFlow } from '@/data/race-weekend-navigation';
 import { starterGameState } from '@/data/starter-game-state';
 import { tabs } from '@/data/app-shell';
 import {
+  HOME_ACTION_CENTER_LIMIT,
+  HOME_ENTRY_ROW_HEIGHT,
+  selectHomeDashboard,
+} from '@/presentation/home-dashboard';
+import {
   applyWeekendEconomy,
   calculateWeekendSettlement,
   getSettlementTransactionId,
@@ -908,4 +913,178 @@ test('locked weekly economy values remain centralized', () => {
   assert.equal(weekendEconomyConfig.operatingCost, 18_000);
   assert.equal(weekendEconomyConfig.starterSponsorRaceIncome, 26_000);
   assert.equal(weekendEconomyConfig.supportedPayoutPositions, 36);
+});
+
+test('home dashboard keeps the complete weekly command view above the portrait fold', () => {
+  const dashboard = selectHomeDashboard(createInitialGameSessionState());
+
+  assert.equal(dashboard.teamName, 'Apex Motorsports');
+  assert.equal(dashboard.seriesLabel, 'ERCA Season 1');
+  assert.equal(dashboard.week, 1);
+  assert.equal(dashboard.currentDate, 'May 1, 2028');
+  assert.equal(dashboard.race.trackName, 'Daytono');
+  assert.equal(dashboard.entries.length, 2);
+  assert.deepEqual(
+    dashboard.entries.map((entry) => [
+      entry.driverName,
+      entry.carNumber,
+      entry.readiness,
+    ]),
+    [
+      ['Cole Mercer', '45', 'Ready'],
+      ['Aiden Voss', '46', 'Ready'],
+    ],
+  );
+  assert.equal(dashboard.cash, 525_000);
+  assert.equal(dashboard.rp, 100);
+  assert.equal(dashboard.exp, 1_880);
+  assert.equal(dashboard.race.primaryAction.label, 'Start Race Weekend');
+  assert.equal(dashboard.warningCount, 0);
+  assert.ok(HOME_ENTRY_ROW_HEIGHT >= 64 && HOME_ENTRY_ROW_HEIGHT <= 84);
+});
+
+test('home dashboard driver, race, recruiting, standings, and finance summaries navigate', () => {
+  const dashboard = selectHomeDashboard(createInitialGameSessionState());
+  const recruiting = dashboard.recruiting;
+  assert.ok(recruiting);
+
+  assert.deepEqual(dashboard.entries[0].href, {
+    pathname: '/drivers/[id]',
+    params: { id: 'driver-cole-mercer' },
+  });
+  assert.equal(dashboard.race.primaryAction.href, '/race-preview');
+  assert.deepEqual(recruiting.href, {
+    pathname: '/recruiting/[id]',
+    params: { id: recruiting.prospectId },
+  });
+  assert.equal(dashboard.standings.href, '/(tabs)/league');
+  assert.equal(dashboard.finances.href, '/(tabs)/team');
+});
+
+test('home dashboard makes blocked readiness and repair cost an immediate action', () => {
+  const session = createSessionWithConditions([74, 90]);
+  const dashboard = selectHomeDashboard(session);
+
+  assert.equal(dashboard.race.bothCarsEligible, false);
+  assert.equal(dashboard.race.primaryAction.label, 'Finish Repairs');
+  assert.deepEqual(dashboard.race.primaryAction.href, {
+    pathname: '/vehicles/[number]',
+    params: { number: '45' },
+  });
+  assert.equal(dashboard.warningCount, 1);
+  assert.equal(dashboard.entries[0].readiness, 'Not Ready');
+  assert.equal(dashboard.entries[1].readiness, 'Ready');
+  const repairAction = dashboard.actionCenter.items.find(
+    (action) => action.id === 'repair-vehicle-45',
+  );
+  assert.ok(repairAction);
+  assert.match(repairAction.title, /Car #45 needs repairs/);
+  assert.match(repairAction.consequence, /from \$/);
+  assert.equal(repairAction.tone, 'red');
+});
+
+test('home dashboard compresses healthy systems instead of rendering inactive cards', () => {
+  const dashboard = selectHomeDashboard(createSessionWithConditions([100, 100]));
+  const source = readFileSync('src/screens/home-screen.tsx', 'utf8');
+
+  assert.equal(
+    dashboard.actionCenter.items.some((action) => action.id.startsWith('repair-')),
+    false,
+  );
+  assert.equal(dashboard.finances.knownRepairEstimate, 0);
+  assert.ok(source.includes('No urgent actions'));
+  assert.equal(source.includes('<SectionHeader'), false);
+  assert.equal(source.includes('Sponsor Goals'), false);
+  assert.equal(source.includes('Vehicle Readiness'), false);
+  assert.equal(source.includes('state.sponsors.map'), false);
+});
+
+test('home dashboard surfaces recruiting risk and the recommended next move', () => {
+  const initial = createInitialGameSessionState();
+  const prospect = initial.game.recruiting.prospects[0];
+  const progress = initial.game.recruiting.campaigns[prospect.id];
+  const rival = progress.rivals[0];
+  const session: GameSessionState = {
+    ...initial,
+    game: {
+      ...initial.game,
+      recruiting: {
+        ...initial.game.recruiting,
+        campaigns: {
+          ...initial.game.recruiting.campaigns,
+          [prospect.id]: {
+            ...progress,
+            recruitingCostToDate: { rp: 25, cash: 0 },
+            rivals: [
+              {
+                ...rival,
+                interest: progress.signingThreshold - 1,
+              },
+              ...progress.rivals.slice(1),
+            ],
+          },
+        },
+      },
+    },
+  };
+  const dashboard = selectHomeDashboard(session);
+
+  assert.equal(dashboard.recruiting?.prospectId, prospect.id);
+  assert.ok(dashboard.recruiting?.riskMessage);
+  assert.ok(dashboard.recruiting?.recommendedAction);
+  assert.equal(dashboard.warningCount, 1);
+  assert.ok(
+    dashboard.actionCenter.items.some(
+      (action) => action.id === `recruiting-risk-${prospect.id}`,
+    ),
+  );
+});
+
+test('home dashboard identifies a contract-ready recruiting target', () => {
+  const initial = createInitialGameSessionState();
+  const prospectId = 'prospect-tobin-wells';
+  const progress = initial.game.recruiting.campaigns[prospectId];
+  const session: GameSessionState = {
+    ...initial,
+    game: {
+      ...initial.game,
+      recruiting: {
+        ...initial.game.recruiting,
+        spendableRp: 1_000,
+        campaigns: {
+          ...initial.game.recruiting.campaigns,
+          [prospectId]: {
+            ...progress,
+            scoutingKnowledge: 100,
+            interest: 100,
+            completedActionUses: {
+              ...progress.completedActionUses,
+              'pitch-seat': 1,
+            },
+          },
+        },
+      },
+    },
+  };
+  const dashboard = selectHomeDashboard(session);
+
+  assert.equal(dashboard.recruiting?.prospectId, prospectId);
+  assert.equal(dashboard.recruiting?.offerReady, true);
+  assert.ok(
+    dashboard.actionCenter.items.some(
+      (action) => action.id === `offer-${prospectId}`,
+    ),
+  );
+});
+
+test('home dashboard action center is capped and economy values are not duplicated', () => {
+  const source = readFileSync('src/screens/home-screen.tsx', 'utf8');
+  const count = (needle: string) => source.split(needle).length - 1;
+
+  assert.equal(HOME_ACTION_CENTER_LIMIT, 5);
+  assert.equal(count('dashboard.cash'), 1);
+  assert.equal(count('dashboard.rp'), 1);
+  assert.equal(count('dashboard.exp'), 1);
+  assert.equal(source.includes('footer='), false);
+  assert.ok(source.includes('overflow: \'hidden\''));
 });
