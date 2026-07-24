@@ -25,7 +25,7 @@ import type {
 } from '@/types/recruiting';
 import type { DriverStanding, RaceFieldState } from '@/types/race-field';
 
-export const CURRENT_GAME_STATE_VERSION = 4;
+export const CURRENT_GAME_STATE_VERSION = 5;
 
 const canonicalArchetypes = new Set<DriverArchetype>([
   'Complete Driver',
@@ -128,9 +128,25 @@ function normalizeProgress(
   fallback: ProspectRecruitingProgress,
   progress: Partial<ProspectRecruitingProgress> | undefined,
 ): ProspectRecruitingProgress {
+  const legacy = progress as
+    | (Partial<ProspectRecruitingProgress> & { scoutingConfidence?: number })
+    | undefined;
+  const { scoutingConfidence: legacyScoutingKnowledge, ...progressWithoutLegacy } =
+    legacy ?? {};
   return {
     ...fallback,
-    ...progress,
+    ...progressWithoutLegacy,
+    scoutingKnowledge:
+      progress?.scoutingKnowledge ??
+      legacyScoutingKnowledge ??
+      fallback.scoutingKnowledge,
+    signingThreshold: progress?.signingThreshold ?? fallback.signingThreshold,
+    prospectTier: progress?.prospectTier ?? fallback.prospectTier,
+    rivals: (progress?.rivals ?? fallback.rivals).map((rival) => ({ ...rival })),
+    battleHistory: (progress?.battleHistory ?? []).map((entry) => ({
+      ...entry,
+      details: [...entry.details],
+    })),
     completedActionUses: { ...(progress?.completedActionUses ?? {}) },
     actionsUsedThisWeekend: [...(progress?.actionsUsedThisWeekend ?? [])],
     actionHistory: (progress?.actionHistory ?? []).map((entry) => ({
@@ -142,7 +158,14 @@ function normalizeProgress(
       ...entry,
       breakdown: {
         ...entry.breakdown,
-        unmetDealbreakers: [...entry.breakdown.unmetDealbreakers],
+        status:
+          entry.breakdown.status ??
+          (entry.accepted ? 'Will Sign' : 'Not Available'),
+        willSign: entry.breakdown.willSign ?? entry.accepted,
+        unmetDealbreakers: [...(entry.breakdown.unmetDealbreakers ?? [])],
+        requirements: (entry.breakdown.requirements ?? []).map((requirement) => ({
+          ...requirement,
+        })),
       },
     })),
     recruitingCostToDate: {
@@ -323,17 +346,36 @@ export function normalizeGameState(state: GameState): GameState {
         vehicle.note ?? 'Vehicle state restored.',
       ),
     ),
-    staff: state.staff.map((member) =>
-      member.id === 'staff-dana-price' || member.name === 'Dana Price'
-        ? {
+    staff: [
+      ...state.staff.map((member) => {
+        if (member.id === 'staff-dana-price' || member.name === 'Dana Price') {
+          return {
             ...member,
             id: 'staff-dana-pierce',
             name: 'Dana Pierce',
             effect:
               '+10% scouting effectiveness on short-track and regional prospects.',
-          }
-        : { ...member },
-    ),
+          };
+        }
+        if (member.id === 'staff-mia-torres' || member.name === 'Mia Torres') {
+          return {
+            ...member,
+            id: 'staff-ava-larkin',
+            name: 'Ava Larkin',
+            effect: '+10% eligible prospect social actions.',
+          };
+        }
+        return { ...member };
+      }),
+      ...(!state.staff.some(
+        (member) =>
+          member.id === 'staff-marco-desoto' || member.name === 'Marco DeSoto',
+      )
+        ? starterGameState.staff
+            .filter((member) => member.id === 'staff-marco-desoto')
+            .map((member) => ({ ...member }))
+        : []),
+    ],
     sponsors: state.sponsors.map((sponsor) => ({ ...sponsor })),
     manufacturers: manufacturerCatalog.map((manufacturer) => ({
       ...manufacturer,

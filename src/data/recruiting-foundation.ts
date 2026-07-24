@@ -9,7 +9,10 @@ export function selectRecruitingFoundation(state: GameState) {
     spendableRp: state.recruiting.spendableRp,
     recruitingVisibility: state.recruiting.visibility,
     availableProspects: state.recruiting.prospects.filter(
-      (prospect) => !state.recruiting.campaigns[prospect.id]?.signed,
+      (prospect) => {
+        const campaign = state.recruiting.campaigns[prospect.id];
+        return !campaign?.signed && !campaign?.signedByTeamId;
+      },
     ).length,
     activeStaffTraits: state.staff
       .filter((member) => member.active)

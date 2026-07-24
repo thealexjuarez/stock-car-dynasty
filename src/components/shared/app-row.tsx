@@ -7,9 +7,15 @@ type AppRowProps = {
   compact?: boolean;
   label: string;
   detail?: string;
+  detailTone?: 'muted' | 'soft';
 };
 
-export function AppRow({ compact = false, label, detail }: AppRowProps) {
+export function AppRow({
+  compact = false,
+  detail,
+  detailTone = 'soft',
+  label,
+}: AppRowProps) {
   return (
     <View
       style={{
@@ -24,7 +30,7 @@ export function AppRow({ compact = false, label, detail }: AppRowProps) {
       }}>
       <AppText>{label}</AppText>
       {detail ? (
-        <AppText tone="soft" variant="caption">
+        <AppText tone={detailTone} variant="caption">
           {detail}
         </AppText>
       ) : null}

@@ -11,11 +11,21 @@ import {
 } from '@/data/prospect-data';
 import { selectRecruitingFoundation } from '@/data/recruiting-foundation';
 import {
+  getRecruitingActionUsageTags,
   getRecruitingAction,
   recruitingActions,
   scoutingBands,
 } from '@/data/recruiting-config';
+import { recruitingActionCopy } from '@/data/recruiting-copy';
 import { starterGameState } from '@/data/starter-game-state';
+import {
+  DEFAULT_COMPACT_ACTION_COUNT,
+  getOrderedRecruitingActions,
+  getRecruitingActionRowState,
+  MINIMUM_VISIBLE_ACTION_ROWS,
+  RECRUITING_ACTION_ROW_HEIGHT,
+  toggleExpandedRecruitingAction,
+} from '@/presentation/recruiting-actions';
 import {
   applyRecruitingAction,
   applyRecruitingOffer,
@@ -23,7 +33,12 @@ import {
   calculateRecruitingEffects,
   evaluateContractOffer,
   getActionAvailability,
+  getFilmReviewScoutingGain,
+  getImmediateRecruitingRiskWarnings,
+  getInterestLabel,
   getOfferAvailability,
+  getRecommendedRecruitingAction,
+  getRecruitingRiskWarning,
   getRelationshipDepth,
   getScoutingBand,
   getSigningBonus,
@@ -113,8 +128,8 @@ function emptyResult(seed = 'recruiting-settlement'): RaceResult {
 function offerReady(state: GameState, prospectId = tobinId): GameState {
   return withResources(
     withProgress(state, prospectId, {
-      scoutingConfidence: 76,
-      interest: 80,
+      scoutingKnowledge: 76,
+      interest: 100,
       completedActionUses: { 'pitch-seat': 1 },
       relationshipPaths: [
         'Direct Contact',
@@ -151,14 +166,54 @@ test('market starts with 100 spendable RP, separate Pull 45, Visibility 44, and 
   );
 });
 
-test('all 26 canonical actions and locked high-end costs are centralized', () => {
-  assert.equal(recruitingActions.length, 26);
+test('all 26 canonical actions remain centralized beside the Film Review fallback', () => {
+  const canonicalActions = recruitingActions.filter((action) => action.id !== 'film-review');
+  assert.equal(canonicalActions.length, 26);
+  assert.equal(recruitingActions.length, 27);
   assert.deepEqual(
-    recruitingActions.map((item) => item.rpCost),
+    canonicalActions.map((item) => item.rpCost),
     [10,20,25,35,50,60,60,65,75,75,75,80,90,90,100,100,110,125,125,140,150,175,175,200,250,300],
+  );
+  assert.deepEqual(
+    {
+      cost: getRecruitingAction('film-review').rpCost,
+      lifetime: getRecruitingAction('film-review').maximumLifetimeUses,
+      oncePerWeekend: getRecruitingAction('film-review').oncePerWeekend,
+      repeatable: getRecruitingAction('film-review').repeatable,
+    },
+    { cost: 25, lifetime: null, oncePerWeekend: true, repeatable: true },
   );
   assert.equal(getRecruitingAction('private-test-day').cashCost, 20_000);
   assert.equal(getRecruitingAction('contract-offer').rpCost, 300);
+  assert.equal(Object.keys(recruitingActionCopy).length, 27);
+  assert.equal(
+    recruitingActions.every((action) => recruitingActionCopy[action.id].purpose.length > 20),
+    true,
+  );
+  assert.equal(
+    recruitingActions.every((action) => getRecruitingActionUsageTags(action).length > 0),
+    true,
+  );
+});
+
+test('interest labels use the approved plain-language bands', () => {
+  assert.deepEqual(
+    [0, 19, 20, 39, 40, 59, 60, 74, 75, 89, 90, 100].map(getInterestLabel),
+    [
+      'Not Interested',
+      'Not Interested',
+      'Listening',
+      'Listening',
+      'Interested',
+      'Interested',
+      'Seriously Considering',
+      'Seriously Considering',
+      'Ready to Negotiate',
+      'Ready to Negotiate',
+      'Wants to Sign',
+      'Wants to Sign',
+    ],
+  );
 });
 
 test('staff action groupings match the approved matrix', () => {
@@ -186,18 +241,117 @@ test('settlement adds 100 RP once, carries balance, resets weekly counters, and 
   assert.strictEqual(applyRecruitingWeekendSettlement(state, emptyResult()), state);
 });
 
+test('rival recruiting advances only once at authoritative weekend settlement', () => {
+  const state = freshGame();
+  const before = state.recruiting.campaigns[masonId];
+  const revealBefore = selectProspectReveal(state, masonId);
+  assert.deepEqual(
+    selectProspectReveal(state, masonId).recruitingBattle,
+    revealBefore.recruitingBattle,
+  );
+
+  const settled = applyRecruitingWeekendSettlement(state, emptyResult('rival-week'));
+  const after = settled.recruiting.campaigns[masonId];
+  assert.equal(
+    after.rivals.every((rival) => rival.interest >= rival.previousInterest),
+    true,
+  );
+  assert.equal(after.battleHistory.length, 1);
+  assert.strictEqual(
+    applyRecruitingWeekendSettlement(settled, emptyResult('rival-week')),
+    settled,
+  );
+  assert.deepEqual(before.rivals, state.recruiting.campaigns[masonId].rivals);
+});
+
+test('competition count is prospect-specific and scouting controls rival detail', () => {
+  const state = freshGame();
+  const lowPressure = state.recruiting.campaigns['prospect-elias-crowe'];
+  const highPressure = state.recruiting.campaigns['prospect-owen-lark'];
+  assert.equal(lowPressure.rivals.length <= 1, true);
+  assert.equal(highPressure.rivals.length >= 3 && highPressure.rivals.length <= 4, true);
+
+  const basic = selectProspectReveal(state, 'prospect-owen-lark');
+  assert.equal(
+    basic.recruitingBattle.teams
+      .filter((team) => !team.isApex)
+      .every((team) => team.teamName === 'Unknown team' && team.interest === null),
+    true,
+  );
+  const profile = selectProspectReveal(
+    withProgress(state, 'prospect-owen-lark', { scoutingKnowledge: 26 }),
+    'prospect-owen-lark',
+  );
+  assert.equal(
+    profile.recruitingBattle.teams
+      .filter((team) => !team.isApex)
+      .every((team) => team.teamName !== 'Unknown team' && team.interestRange !== null),
+    true,
+  );
+});
+
+test('a rival reaching the persistent signing line makes the prospect unavailable', () => {
+  const state = freshGame();
+  const progress = state.recruiting.campaigns[masonId];
+  const rival = progress.rivals[0];
+  assert.ok(rival);
+  const nearSigning = withProgress(state, masonId, {
+    rivals: [
+      {
+        ...rival,
+        interest: progress.signingThreshold - 1,
+        previousInterest: progress.signingThreshold - 1,
+      },
+    ],
+  });
+  const settled = applyRecruitingWeekendSettlement(
+    nearSigning,
+    emptyResult('rival-signing'),
+  );
+  assert.equal(settled.recruiting.campaigns[masonId].signedByTeamId, rival.teamId);
+  assert.equal(selectProspectReveal(settled, masonId).availability, 'Unavailable');
+});
+
+test('ten-week rival campaigns stay deterministic, bounded, and prospect-specific', () => {
+  const run = () => {
+    let state = freshGame();
+    for (let week = 1; week <= 10; week += 1) {
+      state = applyRecruitingWeekendSettlement(
+        state,
+        emptyResult(`ten-week-rival-${week}`),
+      );
+    }
+    return state.recruiting;
+  };
+  const first = run();
+  const second = run();
+  assert.deepEqual(first, second);
+  Object.values(first.campaigns).forEach((campaign) => {
+    assert.equal(campaign.rivals.length <= 4, true);
+    assert.equal(
+      campaign.rivals.every(
+        (rival) => rival.weeklyChange >= 0 && rival.weeklyChange <= 8,
+      ),
+      true,
+    );
+    assert.equal(campaign.battleHistory.length <= 10, true);
+  });
+});
+
 test('race settlement integrates the RP award without changing settlement replay protection', () => {
   const start = withProgress(freshGame(), masonId, {
-    scoutingConfidence: 31,
+    scoutingKnowledge: 31,
     interest: 62,
     weeklyActionCount: 2,
   });
   const result = emptyResult('integrated-settlement');
   const settled = applyRaceSettlement(start, result);
   assert.equal(settled.recruiting.spendableRp, 200);
-  assert.equal(settled.recruiting.campaigns[masonId].scoutingConfidence, 31);
+  assert.equal(settled.recruiting.campaigns[masonId].scoutingKnowledge, 31);
   assert.equal(settled.recruiting.campaigns[masonId].interest, 62);
   assert.equal(settled.recruiting.campaigns[masonId].weeklyActionCount, 0);
+  assert.equal(settled.recruiting.campaigns[masonId].battleHistory[0].season, 1);
+  assert.equal(settled.recruiting.campaigns[masonId].battleHistory[0].week, 1);
   assert.strictEqual(applyRaceSettlement(settled, result), settled);
 });
 
@@ -205,8 +359,86 @@ test('successful action spends RP once and replay returns the same state', () =>
   const start = withResources(freshGame(), 100);
   const next = applyRecruitingAction(start, command('scout-report'));
   assert.equal(next.recruiting.spendableRp, 75);
-  assert.equal(next.recruiting.campaigns[masonId].scoutingConfidence > 0, true);
+  assert.equal(next.recruiting.campaigns[masonId].scoutingKnowledge > 0, true);
   assert.strictEqual(applyRecruitingAction(next, command('scout-report')), next);
+});
+
+test('every unsigned prospect retains a legal Film Review path in every scouting band', () => {
+  const base = withResources(freshGame());
+  for (const prospect of base.recruiting.prospects) {
+    for (const scoutingKnowledge of [0, 26, 51, 76, 99]) {
+      const state = withProgress(base, prospect.id, {
+        scoutingKnowledge,
+        weeklyActionCount: 0,
+        actionsUsedThisWeekend: [],
+      });
+      assert.equal(
+        getActionAvailability(state, prospect.id, 'film-review').available,
+        true,
+        `${prospect.id} should retain Film Review at ${scoutingKnowledge}`,
+      );
+    }
+  }
+});
+
+test('Film Review uses exact 12, 10, 8, then 6-point gains with no interest gain', () => {
+  let state = withResources(freshGame());
+  const expectedGains = [12, 10, 8, 6, 6];
+  expectedGains.forEach((expectedGain, index) => {
+    const before = state.recruiting.campaigns[masonId];
+    const action = command('film-review', masonId, `${index + 1}`);
+    const next = applyRecruitingAction(state, action);
+    const after = next.recruiting.campaigns[masonId];
+    assert.equal(after.scoutingKnowledge - before.scoutingKnowledge, expectedGain);
+    assert.equal(after.interest, before.interest);
+    assert.equal(next.recruiting.spendableRp, state.recruiting.spendableRp - 25);
+    assert.strictEqual(applyRecruitingAction(next, action), next);
+    state = withProgress(next, masonId, {
+      weeklyActionCount: 0,
+      actionsUsedThisWeekend: [],
+    });
+  });
+  assert.deepEqual([0, 1, 2, 3, 20].map(getFilmReviewScoutingGain), [12, 10, 8, 6, 6]);
+});
+
+test('Film Review is weekly-limited, lifetime-unlimited, and reaches exactly 100', () => {
+  let state = withResources(freshGame(), 2_000);
+  let uses = 0;
+  while (state.recruiting.campaigns[masonId].scoutingKnowledge < 100) {
+    const availability = getActionAvailability(state, masonId, 'film-review');
+    assert.equal(availability.available, true);
+    const next = applyRecruitingAction(
+      state,
+      command('film-review', masonId, `reach-100-${uses}`),
+    );
+    uses += 1;
+    assert.equal(
+      getActionAvailability(next, masonId, 'film-review').reasons[0],
+      'Weekly use already spent',
+    );
+    state = withProgress(next, masonId, {
+      weeklyActionCount: 0,
+      actionsUsedThisWeekend: [],
+    });
+    assert.equal(uses < 25, true);
+  }
+  assert.equal(state.recruiting.campaigns[masonId].scoutingKnowledge, 100);
+  const complete = getActionAvailability(state, masonId, 'film-review');
+  assert.equal(complete.available, false);
+  assert.equal(complete.completed, true);
+  assert.equal(complete.reasons[0], 'Scouting report is complete');
+
+  const deepHistory = withProgress(
+    withResources(freshGame()),
+    masonId,
+    {
+      scoutingKnowledge: 90,
+      completedActionUses: { 'film-review': 50 },
+      weeklyActionCount: 0,
+      actionsUsedThisWeekend: [],
+    },
+  );
+  assert.equal(getActionAvailability(deepHistory, masonId, 'film-review').available, true);
 });
 
 test('failed validation spends no RP or cash', () => {
@@ -322,11 +554,11 @@ test('Dana Pierce boosts only qualifying scouting confidence', () => {
 test('meters clamp to 100 and positive successful effects remain at least one', () => {
   let state = withProgress(withResources(freshGame()), masonId, {
     interest: 100,
-    scoutingConfidence: 99,
+    scoutingKnowledge: 99,
     completedActionUses: { 'watch-race-tape': 1 },
   });
   state = applyRecruitingAction(state, command('watch-race-tape', masonId, 'clamp'));
-  assert.equal(state.recruiting.campaigns[masonId].scoutingConfidence, 100);
+  assert.equal(state.recruiting.campaigns[masonId].scoutingKnowledge, 100);
 
   const definition = getRecruitingAction('text-dm');
   const prospect = state.recruiting.prospects.find((item) => item.id === masonId)!;
@@ -347,29 +579,31 @@ test('the exact four scouting bands are enforced at boundaries', () => {
   ]);
 });
 
-test('reveal selector gates archetypes, stats, interest, sponsors, and dealbreakers', () => {
+test('reveal selector keeps Apex Interest visible while gating scouting discoveries', () => {
   const state = freshGame();
   const basic = selectProspectReveal(state, masonId);
   assert.equal(basic.archetypes, null);
   assert.deepEqual(basic.stats, {});
-  assert.equal(basic.interest, null);
+  assert.equal(basic.interest, state.recruiting.campaigns[masonId].interest);
+  assert.equal(basic.signingThreshold, null);
   assert.equal(basic.sponsorInformation, null);
   assert.equal(basic.dealbreakers, null);
 
-  const profile = selectProspectReveal(withProgress(state, masonId, { scoutingConfidence: 26 }), masonId);
+  const profile = selectProspectReveal(withProgress(state, masonId, { scoutingKnowledge: 26 }), masonId);
   assert.notEqual(profile.archetypes, null);
   assert.notEqual(profile.salaryRange, null);
-  assert.equal(profile.interest, null);
+  assert.equal(profile.interest, state.recruiting.campaigns[masonId].interest);
 
-  const evaluation = selectProspectReveal(withProgress(state, masonId, { scoutingConfidence: 51 }), masonId);
+  const evaluation = selectProspectReveal(withProgress(state, masonId, { scoutingKnowledge: 51 }), masonId);
   assert.equal(Object.keys(evaluation.statRanges).length, 10);
-  assert.notEqual(evaluation.interest, null);
+  assert.equal(evaluation.interest, state.recruiting.campaigns[masonId].interest);
   assert.equal(evaluation.dealbreakers, null);
 
-  const exact = selectProspectReveal(withProgress(state, masonId, { scoutingConfidence: 76 }), masonId);
+  const exact = selectProspectReveal(withProgress(state, masonId, { scoutingKnowledge: 76 }), masonId);
   assert.equal(exact.overall, prototypeProspects[0].overall);
   assert.equal(Object.keys(exact.stats).length, 10);
   assert.notEqual(exact.dealbreakers, null);
+  assert.equal(exact.signingThreshold, state.recruiting.campaigns[masonId].signingThreshold);
 });
 
 test('Development Prospect narrows ranges without revealing information early', () => {
@@ -379,7 +613,7 @@ test('Development Prospect narrows ranges without revealing information early', 
   const dev = selectProspectReveal(state, primaryDevelopmentId);
   const ordinary = selectProspectReveal(state, ordinaryId);
   assert.equal(dev.archetypes, null);
-  assert.equal(dev.interest, null);
+  assert.equal(dev.interest, state.recruiting.campaigns[primaryDevelopmentId].interest);
   assert.equal((dev.overallRange![1] - dev.overallRange![0]) < (ordinary.overallRange![1] - ordinary.overallRange![0]), true);
 });
 
@@ -390,7 +624,7 @@ test('social recruiting changes E and V, reveals no scouting data, and creates n
   const progress = next.recruiting.campaigns[masonId];
   assert.equal(progress.engagement, 9);
   assert.equal(next.recruiting.visibility, 46);
-  assert.equal(progress.scoutingConfidence, 0);
+  assert.equal(progress.scoutingKnowledge, 0);
   assert.equal(selectProspectReveal(next, masonId).archetypes, null);
   assert.equal(next.team.cash, beforeCash);
   assert.equal(getActionAvailability(next, masonId, 'driver-highlight').available, true);
@@ -408,80 +642,203 @@ test('relationship depth rewards distinct paths and caps at eight', () => {
   }), 8);
 });
 
-test('offer score uses deterministic salary, term, role, reputation, visibility, and pressure modifiers', () => {
-  const staffless = {
-    ...freshGame(),
-    staff: freshGame().staff.map((member) =>
-      member.trait === 'Development-Minded' ? { ...member, active: false } : member,
-    ),
-  };
-  const state = offerReady(staffless);
-  const demand = state.recruiting.prospects.find((item) => item.id === tobinId)!.salaryDemand;
-  const evaluateSalary = (ratio: number) =>
-    evaluateContractOffer(state, tobinId, Math.round(demand * ratio), 1).salaryFit;
-  assert.deepEqual(
-    [evaluateSalary(0.84), evaluateSalary(0.9), evaluateSalary(1), evaluateSalary(1.1), evaluateSalary(1.15)],
-    [-25, -12, 0, 8, 15],
-  );
-  const low = evaluateContractOffer(state, tobinId, demand, 1);
-  const longer = evaluateContractOffer(state, tobinId, demand, 2);
-  assert.equal(low.termFit, 3);
-  assert.equal(longer.termFit, 5);
-  assert.equal(low.roleFit, 0);
-  assert.equal(low.relationshipDepth, 8);
-  assert.equal(low.reputationFit, 4);
-  assert.equal(low.visibilityFit, -1);
-  assert.equal(low.competingPressure, 0);
-  assert.equal(low.threshold, 75);
-  assert.deepEqual(evaluateContractOffer(state, tobinId, demand, 1), evaluateContractOffer(state, tobinId, demand, 1));
+test('signing thresholds are persistent, tier-bounded, and revealed only at Full Evaluation', () => {
+  const first = freshGame();
+  const second = freshGame();
+  for (const prospect of first.recruiting.prospects) {
+    const left = first.recruiting.campaigns[prospect.id];
+    const right = second.recruiting.campaigns[prospect.id];
+    const bounds = {
+      Hidden: [55, 70],
+      Ordinary: [65, 78],
+      Strong: [75, 88],
+      Elite: [85, 96],
+    }[left.prospectTier];
+    assert.equal(left.signingThreshold >= bounds[0] && left.signingThreshold <= bounds[1], true);
+    assert.equal(left.signingThreshold, right.signingThreshold);
+    assert.equal(selectProspectReveal(first, prospect.id).signingThreshold, null);
+    assert.equal(
+      selectProspectReveal(
+        withProgress(first, prospect.id, { scoutingKnowledge: 76 }),
+        prospect.id,
+      ).signingThreshold,
+      left.signingThreshold,
+    );
+  }
 });
 
-test('term, role, reputation, visibility, pressure, and staff offer rules match the approved formula', () => {
+test('disabled recruiting reasons follow the approved player-facing priority', () => {
+  const blocked = withProgress(
+    withResources(freshGame(), 0),
+    masonId,
+    {
+      weeklyActionCount: 3,
+      completedActionUses: { 'watch-race-tape': 2 },
+      actionsUsedThisWeekend: ['watch-race-tape'],
+    },
+  );
+  const availability = getActionAvailability(blocked, masonId, 'watch-race-tape');
+  assert.deepEqual(
+    availability.reasons.slice(0, 4),
+    [
+      'Weekly action limit reached',
+      'Weekly use already spent',
+      'Lifetime uses exhausted',
+      'Need 50 more RP',
+    ],
+  );
+  assert.equal(
+    availability.blockers.some(
+      (blocker) => blocker.detail === 'Requires 50 RP; Apex has 0.',
+    ),
+    true,
+  );
+});
+
+test('locked actions show exact requirements and deterministic collapsed-row states', () => {
+  const state = withProgress(withResources(freshGame(), 30), masonId, {
+    interest: 0,
+  });
+  const action = getActionAvailability(state, masonId, 'shop-tour');
+  assert.equal(action.primaryReason, 'Need 60 more RP');
+  assert.equal(getRecruitingActionRowState(action), 'Insufficient RP');
+  assert.equal(
+    action.reasons.includes('Requires Pitch Seat Opportunity'),
+    true,
+  );
+  assert.equal(action.reasons.includes('Requires 35 Apex Interest'), true);
+
+  const weekly = getActionAvailability(
+    withProgress(withResources(freshGame()), masonId, {
+      actionsUsedThisWeekend: ['film-review'],
+    }),
+    masonId,
+    'film-review',
+  );
+  assert.equal(getRecruitingActionRowState(weekly), 'Used This Week');
+  assert.equal(
+    getRecruitingActionRowState(
+      getActionAvailability(
+        withProgress(withResources(freshGame()), masonId, {
+          scoutingKnowledge: 100,
+        }),
+        masonId,
+        'film-review',
+      ),
+    ),
+    'Completed',
+  );
+});
+
+test('compact action ordering is stable and one action expands at a time', () => {
+  const state = withResources(freshGame());
+  const first = getOrderedRecruitingActions(
+    state,
+    masonId,
+    'All',
+    'film-review',
+  ).map((action) => action.id);
+  const second = getOrderedRecruitingActions(
+    state,
+    masonId,
+    'All',
+    'film-review',
+  ).map((action) => action.id);
+  assert.deepEqual(first, second);
+  assert.equal(first[0], 'film-review');
+  assert.equal(toggleExpandedRecruitingAction(null, 'film-review'), 'film-review');
+  assert.equal(
+    toggleExpandedRecruitingAction('film-review', 'scout-report'),
+    'scout-report',
+  );
+  assert.equal(
+    toggleExpandedRecruitingAction('film-review', 'film-review'),
+    null,
+  );
+  assert.equal(DEFAULT_COMPACT_ACTION_COUNT >= MINIMUM_VISIBLE_ACTION_ROWS, true);
+  assert.equal(RECRUITING_ACTION_ROW_HEIGHT >= 48, true);
+  assert.equal(RECRUITING_ACTION_ROW_HEIGHT <= 64, true);
+});
+
+test('recommended move follows scouting, relationship, and signing readiness', () => {
+  assert.equal(getRecommendedRecruitingAction(freshGame(), masonId)?.id, 'scout-report');
+  assert.equal(
+    getRecommendedRecruitingAction(
+      withProgress(withResources(freshGame()), masonId, {
+        scoutingKnowledge: 51,
+        interest: 55,
+      }),
+      masonId,
+    )?.id,
+    'pitch-development',
+  );
+  assert.equal(getRecommendedRecruitingAction(offerReady(freshGame()), tobinId)?.id, 'contract-offer');
+});
+
+test('contract evaluation is a visible pass-fail checklist with no hidden acceptance roll', () => {
+  const state = offerReady(freshGame());
+  const prospect = state.recruiting.prospects.find((item) => item.id === tobinId)!;
+  const ready = evaluateContractOffer(state, tobinId, prospect.salaryDemand, 1);
+  assert.equal(ready.status, 'Will Sign');
+  assert.equal(ready.willSign, true);
+  assert.equal(ready.threshold, state.recruiting.campaigns[tobinId].signingThreshold);
+  assert.equal(ready.requirements.every((requirement) => requirement.met), true);
+  assert.deepEqual(ready, evaluateContractOffer(state, tobinId, prospect.salaryDemand, 1));
+
+  const salaryLow = evaluateContractOffer(state, tobinId, prospect.salaryDemand - 1, 1);
+  assert.equal(salaryLow.status, 'Salary Too Low');
+  assert.equal(salaryLow.willSign, false);
+  const interestLow = evaluateContractOffer(
+    withProgress(state, tobinId, { interest: 74 }),
+    tobinId,
+    prospect.salaryDemand,
+    1,
+  );
+  assert.equal(interestLow.status, 'Needs More Interest');
+});
+
+test('contract checklist does not leak salary, term, role, or dealbreakers before Full Evaluation', () => {
+  const state = withResources(freshGame());
+  const prospect = state.recruiting.prospects.find((item) => item.id === masonId)!;
+  const breakdown = evaluateContractOffer(
+    state,
+    masonId,
+    prospect.salaryDemand,
+    prospect.preferredTerm,
+  );
+  const protectedItems = breakdown.requirements.filter((requirement) =>
+    ['interest', 'role', 'salary', 'term', 'dealbreakers'].includes(requirement.id),
+  );
+  assert.equal(protectedItems.every((requirement) => !requirement.met), true);
+  const details = protectedItems.map((requirement) => requirement.detail).join(' ');
+  assert.doesNotMatch(details, new RegExp(prospect.salaryDemand.toLocaleString()));
+  assert.doesNotMatch(details, new RegExp(`${prospect.preferredTerm}-year preference`));
+  assert.doesNotMatch(details, new RegExp(prospect.dealbreakers[0]));
+});
+
+test('term, role, dealbreaker, and roster checks block signing without staff score bonuses', () => {
+  const jaceState = offerReady(freshGame(), 'prospect-jace-hollander');
+  const jace = jaceState.recruiting.prospects.find((item) => item.id === 'prospect-jace-hollander')!;
+  assert.equal(evaluateContractOffer(jaceState, jace.id, jace.salaryDemand, 1).termFit, -1);
+  assert.equal(evaluateContractOffer(jaceState, jace.id, jace.salaryDemand, 3).termFit, 1);
+
+  const theoState = offerReady(freshGame(), 'prospect-theo-barrett');
+  const theo = theoState.recruiting.prospects.find((item) => item.id === 'prospect-theo-barrett')!;
+  assert.equal(
+    evaluateContractOffer(theoState, theo.id, theo.salaryDemand, 1).status,
+    'Dealbreaker Not Met',
+  );
+
   const staffless = {
-    ...freshGame(),
-    staff: freshGame().staff.map((member) =>
+    ...jaceState,
+    staff: jaceState.staff.map((member) =>
       member.trait === 'Development-Minded' ? { ...member, active: false } : member,
     ),
   };
-  const jaceState = offerReady(staffless, 'prospect-jace-hollander');
-  const jace = jaceState.recruiting.prospects.find((item) => item.id === 'prospect-jace-hollander')!;
-  assert.equal(evaluateContractOffer(jaceState, jace.id, jace.salaryDemand, 1).termFit, -16);
-  assert.equal(evaluateContractOffer(jaceState, jace.id, jace.salaryDemand, 2).termFit, -8);
-  assert.equal(evaluateContractOffer(jaceState, jace.id, jace.salaryDemand, 3).termFit, 3);
-  assert.equal(evaluateContractOffer(jaceState, jace.id, jace.salaryDemand, 3).roleFit, 8);
-
-  const theoState = offerReady(staffless, 'prospect-theo-barrett');
-  const theo = theoState.recruiting.prospects.find((item) => item.id === 'prospect-theo-barrett')!;
-  assert.equal(evaluateContractOffer(theoState, theo.id, theo.salaryDemand, 1).roleFit, -20);
-
-  const highFits = {
-    ...jaceState,
-    team: { ...jaceState.team, reputation: 100 },
-    recruiting: { ...jaceState.recruiting, visibility: 100 },
-  };
-  const lowFits = {
-    ...jaceState,
-    team: { ...jaceState.team, reputation: 0 },
-    recruiting: { ...jaceState.recruiting, visibility: 0 },
-  };
-  assert.equal(evaluateContractOffer(highFits, jace.id, jace.salaryDemand, 3).reputationFit, 10);
-  assert.equal(evaluateContractOffer(lowFits, jace.id, jace.salaryDemand, 3).reputationFit, -10);
-  assert.equal(evaluateContractOffer(highFits, jace.id, jace.salaryDemand, 3).visibilityFit, 5);
-  assert.equal(evaluateContractOffer(lowFits, jace.id, jace.salaryDemand, 3).visibilityFit, -3);
-  assert.equal(getVisibilityAdjustment(0), -3);
-  assert.equal(getVisibilityAdjustment(100), 5);
-  assert.equal(evaluateContractOffer(jaceState, jace.id, jace.salaryDemand, 3).competingPressure, -5);
-
-  const staffed = offerReady(freshGame(), jace.id);
-  const staffedResult = evaluateContractOffer(staffed, jace.id, Math.ceil(jace.salaryDemand * 1.15), 3);
-  const unstaffedResult = evaluateContractOffer(jaceState, jace.id, Math.ceil(jace.salaryDemand * 1.15), 3);
-  assert.equal(staffedResult.interest, unstaffedResult.interest);
-  assert.equal(staffedResult.reputationFit, unstaffedResult.reputationFit);
-  assert.equal(staffedResult.visibilityFit, unstaffedResult.visibilityFit);
-  assert.equal(staffedResult.salaryFit > unstaffedResult.salaryFit, true);
-  assert.equal(staffedResult.termFit > unstaffedResult.termFit, true);
-  assert.equal(staffedResult.roleFit > unstaffedResult.roleFit, true);
-  assert.equal(staffedResult.developmentStaffBonus, staffedResult.total - unstaffedResult.total);
+  assert.deepEqual(
+    evaluateContractOffer(jaceState, jace.id, jace.salaryDemand, 3),
+    evaluateContractOffer(staffless, jace.id, jace.salaryDemand, 3),
+  );
 });
 
 test('prototype salaries stay inside the approved overall bands', () => {
@@ -524,24 +881,17 @@ test('offer availability blocks insufficient RP, accepted signing cash, occupied
   assert.equal(getOfferAvailability(withResources(freshGame()), tobinId, demand, 1).available, false);
 });
 
-test('rejected offer spends 300 RP, no cash, creates cooldown, and replay cannot charge twice', () => {
+test('blocked offer cannot be submitted and spends no RP, cash, or roster slot', () => {
   const start = offerReady(freshGame());
   const command = {
     transactionId:'offer:reject', prospectId:tobinId, annualSalary:1, termYears:1 as const,
     role:'Reserve / Development' as const, season:1, week:1, raceId:'race-1',
   };
-  const next = applyRecruitingOffer(start, command);
-  assert.equal(next.recruiting.spendableRp, start.recruiting.spendableRp - 300);
-  assert.equal(next.team.cash, start.team.cash);
-  assert.equal(next.recruiting.campaigns[tobinId].offerCooldown, true);
-  assert.equal(next.recruiting.reserveDriver, undefined);
-  assert.strictEqual(applyRecruitingOffer(next, command), next);
-  assert.equal(getOfferAvailability(next, tobinId, 100_000, 1).available, false);
-
-  const exhausted = withProgress(offerReady(freshGame()), tobinId, {
-    completedActionUses: { 'contract-offer': 3 },
-  });
-  assert.equal(getOfferAvailability(exhausted, tobinId, 100_000, 1).available, false);
+  assert.throws(() => applyRecruitingOffer(start, command));
+  assert.equal(start.recruiting.spendableRp, 2_000);
+  assert.equal(start.team.cash, 1_000_000);
+  assert.equal(start.recruiting.reserveDriver, undefined);
+  assert.equal(start.recruiting.campaigns[tobinId].offerHistory.length, 0);
 });
 
 test('accepted offer spends RP and signing bonus once, fills one reserve slot, and marks prospect signed', () => {
@@ -581,12 +931,121 @@ test('migration adds recruiting defaults without retroactive RP or replaying set
   legacy.drivers[0].exp = 77;
   legacy.economy.processedTransactionIds = ['settlement:old'];
   const normalized = normalizeGameState(legacy as GameState);
-  assert.equal(normalized.stateVersion, 4);
+  assert.equal(normalized.stateVersion, 5);
   assert.equal(normalized.recruiting.spendableRp, 100);
   assert.equal(normalized.recruiting.processedTransactionIds.length, 0);
   assert.equal(normalized.team.cash, 123_456);
   assert.equal(normalized.drivers[0].exp, 77);
   assert.deepEqual(normalized.economy.processedTransactionIds, ['settlement:old']);
+});
+
+test('v4 recruiting migration preserves progress and initializes new competition once', () => {
+  const legacy = structuredClone(starterGameState) as GameState & {
+    stateVersion: number;
+    recruiting: GameState['recruiting'] & {
+      campaigns: Record<string, Record<string, unknown>>;
+    };
+  };
+  legacy.stateVersion = 4;
+  const campaign = legacy.recruiting.campaigns[masonId] as Record<string, unknown>;
+  delete campaign.scoutingKnowledge;
+  delete campaign.signingThreshold;
+  delete campaign.prospectTier;
+  delete campaign.rivals;
+  delete campaign.battleHistory;
+  campaign.scoutingConfidence = 42;
+  campaign.interest = 67;
+  legacy.recruiting.spendableRp = 345;
+  legacy.team.cash = 456_789;
+
+  const normalized = normalizeGameState(legacy);
+  const progress = normalized.recruiting.campaigns[masonId];
+  assert.equal(progress.scoutingKnowledge, 42);
+  assert.equal(progress.interest, 67);
+  assert.equal(progress.signingThreshold > 0, true);
+  assert.equal(progress.rivals.length > 0, true);
+  assert.equal(normalized.recruiting.spendableRp, 345);
+  assert.equal(normalized.team.cash, 456_789);
+  assert.deepEqual(normalizeGameState(normalized), normalized);
+});
+
+test('migration restores Film Review access without changing stuck prospect progress', () => {
+  const legacy = structuredClone(starterGameState);
+  const progress = legacy.recruiting.campaigns[masonId];
+  progress.scoutingKnowledge = 82;
+  progress.interest = 64;
+  progress.completedActionUses = Object.fromEntries(
+    recruitingActions
+      .filter(
+        (action) =>
+          action.id !== 'film-review' &&
+          action.effects.scouting > 0 &&
+          action.maximumLifetimeUses !== null,
+      )
+      .map((action) => [action.id, action.maximumLifetimeUses]),
+  );
+  legacy.recruiting.spendableRp = 250;
+  const normalized = normalizeGameState(legacy);
+  assert.equal(normalized.recruiting.campaigns[masonId].scoutingKnowledge, 82);
+  assert.equal(normalized.recruiting.campaigns[masonId].interest, 64);
+  assert.equal(normalized.recruiting.spendableRp, 250);
+  assert.equal(getActionAvailability(normalized, masonId, 'film-review').available, true);
+  assert.deepEqual(normalizeGameState(normalized), normalized);
+});
+
+test('targeted prospects warn before a rival can cross the signing line', () => {
+  const start = withProgress(freshGame(), masonId, {
+    actionHistory: [
+      {
+        id: 'risk-target',
+        season: 1,
+        week: 1,
+        raceId: 'race-1',
+        actionId: 'film-review',
+        actionName: 'Film Review',
+        useIndex: 1,
+        rpCost: 25,
+        cashCost: 0,
+        scoutingGain: 12,
+        interestGain: 0,
+        engagementGain: 0,
+        visibilityGain: 0,
+        reasons: [],
+      },
+    ],
+    rivals: [
+      {
+        ...freshGame().recruiting.campaigns[masonId].rivals[0],
+        interest: freshGame().recruiting.campaigns[masonId].signingThreshold - 8,
+      },
+    ],
+  });
+  const warning = getRecruitingRiskWarning(start, masonId);
+  assert.notEqual(warning, null);
+  assert.match(warning!.message, /week advances|close to signing elsewhere/);
+  assert.equal(
+    getImmediateRecruitingRiskWarnings(start).some(
+      (item) => item.prospectId === masonId,
+    ),
+    true,
+  );
+  assert.equal(getRecruitingRiskWarning(freshGame(), masonId), null);
+});
+
+test('staff canon uses Ray Hollis, Ava Larkin, and Marco DeSoto after migration', () => {
+  const legacy = structuredClone(starterGameState);
+  legacy.staff = legacy.staff
+    .filter((member) => member.id !== 'staff-marco-desoto')
+    .map((member) =>
+      member.id === 'staff-ava-larkin'
+        ? { ...member, id: 'staff-mia-torres', name: 'Mia Torres' }
+        : member,
+    );
+  const normalized = normalizeGameState(legacy);
+  assert.equal(normalized.staff.some((member) => member.name === 'Ray Hollis'), true);
+  assert.equal(normalized.staff.some((member) => member.name === 'Ava Larkin'), true);
+  assert.equal(normalized.staff.some((member) => member.name === 'Marco DeSoto'), true);
+  assert.equal(normalized.staff.some((member) => member.name === 'Mia Torres'), false);
 });
 
 test('recruiting persists through reducer navigation and repairs do not reset it', () => {
@@ -606,7 +1065,7 @@ test('recruiting persists through reducer navigation and repairs do not reset it
     optionId:'minor:minimum',
   } as never);
   assert.equal(session.game.recruiting.spendableRp, afterRecruiting.spendableRp);
-  assert.equal(session.game.recruiting.campaigns[masonId].scoutingConfidence, afterRecruiting.campaigns[masonId].scoutingConfidence);
+  assert.equal(session.game.recruiting.campaigns[masonId].scoutingKnowledge, afterRecruiting.campaigns[masonId].scoutingKnowledge);
 });
 
 test('Market routes remain while full-field race and repair routes are present', () => {
@@ -625,4 +1084,41 @@ test('Market routes remain while full-field race and repair routes are present',
     readFileSync(`${cwd}/src/screens/league-screen.tsx`, 'utf8'),
     /Driver Standings/,
   );
+});
+
+test('recruiting screens use plain-language meters, battle copy, and guaranteed signing copy', () => {
+  const cwd = process.cwd();
+  const market = readFileSync(`${cwd}/src/screens/market-screen.tsx`, 'utf8');
+  const profile = readFileSync(`${cwd}/src/screens/prospect-profile-screen.tsx`, 'utf8');
+  const offer = readFileSync(`${cwd}/src/screens/recruiting-offer-screen.tsx`, 'utf8');
+  assert.match(market, /Scouting Knowledge/);
+  assert.match(market, /Apex Interest/);
+  assert.match(profile, /Recruiting Battle/);
+  assert.match(profile, /Signing line/);
+  assert.match(profile, /Best Next Move/);
+  assert.match(profile, /Show All Recruiting Actions/);
+  assert.match(profile, /accessibilityState=\{\{ expanded/);
+  assert.match(
+    readFileSync(`${cwd}/src/simulation/recruiting.ts`, 'utf8'),
+    /Weekly use already spent/,
+  );
+  assert.match(
+    readFileSync(`${cwd}/src/data/recruiting-config.ts`, 'utf8'),
+    /Review more race footage to keep building the scouting report/,
+  );
+  assert.match(offer, /A valid offer signs the driver immediately/);
+  assert.match(offer, /spends no Recruiting Points or cash/);
+  assert.doesNotMatch(profile, />S \+/);
+  assert.doesNotMatch(profile, />I \+/);
+  assert.doesNotMatch(profile, />E \+/);
+  assert.doesNotMatch(profile, />V \+/);
+  assert.doesNotMatch(offer, /Acceptance Scorecard|Projected Score|Offer Declined/);
+});
+
+test('practice feedback uses the approved crew-chief voice without technical player copy', () => {
+  const cwd = process.cwd();
+  const practice = readFileSync(`${cwd}/src/simulation/practice.ts`, 'utf8');
+  assert.match(practice, /Ray Hollis:/);
+  assert.doesNotMatch(practice, /strongest .* signal/);
+  assert.doesNotMatch(practice, /effective\) was/);
 });

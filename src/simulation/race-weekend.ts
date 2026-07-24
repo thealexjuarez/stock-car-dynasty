@@ -227,7 +227,10 @@ export function applyRaceSettlement(state: GameState, result: RaceResult): GameS
   };
 
   return applyRaceFieldSettlement(
-    applyRecruitingWeekendSettlement(settledState, result),
+    applyRecruitingWeekendSettlement(settledState, result, {
+      season: state.season,
+      week: state.week,
+    }),
     result,
   );
 }

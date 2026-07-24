@@ -775,7 +775,7 @@ test('older state normalizes canon and new fields without resetting progress', (
     (driver) => driver.id === 'driver-aiden-voss',
   )!;
 
-  assert.equal(normalized.stateVersion, 4);
+  assert.equal(normalized.stateVersion, 5);
   assert.equal(normalized.team.manufacturerId, 'chevrolat');
   assert.equal(normalized.team.cash, 412_345);
   assert.equal(normalized.week, 3);

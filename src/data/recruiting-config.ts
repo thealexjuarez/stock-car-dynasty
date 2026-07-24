@@ -38,6 +38,7 @@ export const recruitingActions = [
   action({ id:'text-dm', canonicalName:'Text / DM', rpCost:10, category:'Direct Contact', repeatable:true, maximumLifetimeUses:3, oncePerWeekend:true, effects:{interest:2}, revealBehavior:'Establishes contact without revealing scouting data.', staffGroup:'none', relationshipPaths:['Direct Contact'], futureSystemNotes:'Establishes contact.' }),
   action({ id:'social-follow', canonicalName:'Social Media Follow / Engage', rpCost:20, category:'Social', repeatable:true, maximumLifetimeUses:3, oncePerWeekend:true, effects:{interest:1,engagement:8,visibility:1}, unlocks:['driver-highlight'], revealBehavior:'No scouting reveal.', staffGroup:'social', relationshipPaths:['Social Campaign'] }),
   action({ id:'scout-report', canonicalName:'Scout Report', rpCost:25, category:'Scouting', repeatable:false, maximumLifetimeUses:1, oncePerWeekend:false, effects:{scouting:20}, revealBehavior:'Reveals only the resulting confidence band.', staffGroup:'none', relationshipPaths:[] }),
+  action({ id:'film-review', canonicalName:'Film Review', rpCost:25, category:'Scouting', repeatable:true, maximumLifetimeUses:null, oncePerWeekend:true, effects:{scouting:12}, revealBehavior:'Review more race footage to keep building the scouting report. This action can be repeated once per week until the driver is fully scouted.', staffGroup:'none', relationshipPaths:['Evaluation'], futureSystemNotes:'Approved repeatable fallback path to 100 Scouting Knowledge.' }),
   action({ id:'crew-chief-call', canonicalName:'Crew Chief Call', rpCost:35, category:'Relationship', prerequisites:{completedAll:['text-dm']}, repeatable:false, maximumLifetimeUses:1, oncePerWeekend:false, effects:{scouting:3,interest:6}, unlocks:['pitch-development'], revealBehavior:'No threshold bypass.', staffGroup:'development', relationshipPaths:['Direct Contact'] }),
   action({ id:'watch-race-tape', canonicalName:'Watch Race Tape', rpCost:50, category:'Evaluation', repeatable:true, maximumLifetimeUses:2, oncePerWeekend:true, effects:{scouting:12}, unlocks:['film-session'], revealBehavior:'Reveals only the resulting confidence band.', staffGroup:'none', relationshipPaths:['Evaluation'] }),
   action({ id:'driver-highlight', canonicalName:'Driver Highlight Post', rpCost:60, category:'Social', prerequisites:{completedAll:['social-follow']}, repeatable:false, maximumLifetimeUses:1, oncePerWeekend:false, effects:{interest:3,engagement:12,visibility:2}, unlocks:['behind-scenes-feature'], revealBehavior:'No scouting reveal.', staffGroup:'social', relationshipPaths:['Social Campaign'] }),
@@ -75,11 +76,34 @@ export const recruitingTuning = {
   staffEffectivenessPercent: 10,
   danaScoutingPercent: 10,
   privateTestDayCashCost: 20_000,
-  acceptanceThreshold: 75,
   signingBonusPercent: 10,
   minimumSigningBonus: 5_000,
   maximumOfferAttempts: 3,
+  rivalMaximumWeeklyGain: 8,
 } as const;
+
+export const filmReviewScoutingGains = [12, 10, 8, 6] as const;
+
+export type RecruitingActionUsageTag =
+  | 'Repeatable'
+  | 'Weekly-limited'
+  | 'Lifetime-limited'
+  | 'One-time'
+  | 'Unlock-gated';
+
+export function getRecruitingActionUsageTags(
+  definition: RecruitingActionDefinition,
+): RecruitingActionUsageTag[] {
+  const tags: RecruitingActionUsageTag[] = [];
+  if (definition.repeatable) tags.push('Repeatable');
+  if (definition.oncePerWeekend) tags.push('Weekly-limited');
+  if (definition.maximumLifetimeUses !== null) {
+    if (definition.repeatable) tags.push('Lifetime-limited');
+    else tags.push('One-time');
+  }
+  if (Object.keys(definition.prerequisites).length > 0) tags.push('Unlock-gated');
+  return tags;
+}
 
 export const scoutingBands = [
   { id:'basic', minimum:0, maximum:25, label:'Basic Information' },

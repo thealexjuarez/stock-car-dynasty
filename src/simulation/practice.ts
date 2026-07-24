@@ -19,14 +19,14 @@ const average = (values: readonly number[]) =>
 
 function getCrewFeedback(setupConfidence: number) {
   if (setupConfidence >= tuning.feedbackThresholds.strong) {
-    return 'The car responded cleanly and the setup window feels repeatable.';
+    return 'Ray Hollis: “Both cars are answering the wheel. We can race from here.”';
   }
 
   if (setupConfidence >= tuning.feedbackThresholds.usable) {
-    return 'The baseline is usable, with only a narrow balance window to manage.';
+    return 'Ray Hollis: “The balance is close. Stay tidy and it should hold together.”';
   }
 
-  return 'The direction is clearer, but the balance remains sensitive.';
+  return 'Ray Hollis: “We found a direction, but the cars still need a careful hand.”';
 }
 
 function formatSessionEffect(label: string, value: number) {
@@ -66,7 +66,7 @@ function resolveEntry(input: PracticeInput, entry: PracticeEntryInput): Practice
     qualifyingPaceBonus: input.selectedChoice.effects.qualifyingPace,
     racePaceBonus: input.selectedChoice.effects.racePace,
     crewFeedback: getCrewFeedback(setupConfidence),
-    insight: `${strongestTrackStat} (${effectiveStats[strongestTrackStat]} effective) was the strongest ${input.track.name}-relevant signal.`,
+    insight: `Marco DeSoto: “${strongestTrackStat} is where ${driver.name} gives us the most to work with at ${input.track.name}.”`,
     qualifyingEffect: formatSessionEffect(
       'Qualifying preparation',
       input.selectedChoice.effects.qualifyingPace,

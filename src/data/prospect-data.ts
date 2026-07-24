@@ -1,9 +1,12 @@
 import { recruitingTuning } from '@/data/recruiting-config';
+import { prototypeFieldOrganizations } from '@/data/erca-field-data';
 import type { DriverStat } from '@/types/game';
 import type {
   ProspectRecruitingProgress,
+  ProspectTier,
   RecruitingProspect,
   RecruitingState,
+  RivalRecruitingProgress,
 } from '@/types/recruiting';
 
 const statKeys: DriverStat[] = [
@@ -65,6 +68,125 @@ export function getVisibilityAdjustment(visibility: number) {
   return Math.max(-3, Math.min(5, Math.round((visibility - 50) / 10)));
 }
 
+function stableNumber(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+export function getProspectTier(prospect: RecruitingProspect): ProspectTier {
+  const growthGap = prospect.potential - prospect.overall;
+  if (prospect.overall >= 68 || prospect.potential >= 79) return 'Elite';
+  if (prospect.overall >= 63 || prospect.potential >= 75) return 'Strong';
+  if (prospect.age <= 20 && growthGap >= 22) return 'Hidden';
+  return 'Ordinary';
+}
+
+const thresholdRanges: Record<ProspectTier, readonly [number, number]> = {
+  Hidden: [55, 70],
+  Ordinary: [65, 78],
+  Strong: [75, 88],
+  Elite: [85, 96],
+};
+
+export function getSigningThreshold(prospect: RecruitingProspect) {
+  const tier = getProspectTier(prospect);
+  const [minimum, maximum] = thresholdRanges[tier];
+  const midpoint = Math.round((minimum + maximum) / 2);
+  const abilityAdjustment =
+    Math.round((prospect.overall - 60) / 8) +
+    Math.round((prospect.potential - 70) / 10);
+  const ageAdjustment =
+    prospect.age <= 20 ? 1 : prospect.age >= 29 ? -1 : 0;
+  const salaryAdjustment =
+    prospect.salaryDemand >= 90_000 ? 2 :
+    prospect.salaryDemand <= 45_000 ? -1 : 0;
+  const roleAdjustment =
+    prospect.roleExpectation === 'Active Seat' ? 3 :
+    prospect.roleExpectation === 'Reserve / Development' ? -1 : 0;
+  const backingAdjustment =
+    prospect.sponsorPackage || prospect.personalFundingPackage ? 1 : 0;
+  const reputationAdjustment = prospect.minimumReputation >= 50 ? 2 : 0;
+  const competitionAdjustment =
+    prospect.competingPressure === 'High' ? 2 :
+    prospect.competingPressure === 'Low' ? -1 : 0;
+  const manufacturerAdjustment = prospect.manufacturerFit.includes('chevrolat') ? -1 : 2;
+  const personalityAdjustment =
+    prospect.recruitingPullSensitivity >= 3 ? -1 :
+    prospect.recruitingPullSensitivity === 0 ? 1 : 0;
+  const archetypeAdjustment =
+    prospect.archetypes.includes('Aggressive Driver') ? 1 :
+    prospect.archetypes.includes('Development Prospect') ? -1 : 0;
+  const stableAdjustment =
+    (stableNumber(`${prospect.id}:signing-threshold`) % 3) - 1;
+  return Math.max(
+    minimum,
+    Math.min(
+      maximum,
+      midpoint +
+        abilityAdjustment +
+        ageAdjustment +
+        salaryAdjustment +
+        roleAdjustment +
+        backingAdjustment +
+        reputationAdjustment +
+        competitionAdjustment +
+        manufacturerAdjustment +
+        personalityAdjustment +
+        archetypeAdjustment +
+        stableAdjustment,
+    ),
+  );
+}
+
+function getInitialRivalCount(prospect: RecruitingProspect) {
+  const stable = stableNumber(`${prospect.id}:rival-count`) % 3;
+  if (prospect.competingPressure === 'Low') return stable % 2;
+  if (prospect.competingPressure === 'Medium') return 1 + stable;
+  return 3 + (stable % 2);
+}
+
+function createInitialRivals(prospect: RecruitingProspect): RivalRecruitingProgress[] {
+  const organizations = prototypeFieldOrganizations
+    .filter((team) => !team.isPlayerTeam)
+    .map((team) => {
+      const manufacturerFit = prospect.manufacturerFit.includes(team.manufacturerId) ? 5 : 0;
+      const teamPull =
+        team.tier === 'Elite' ? 13 :
+        team.tier === 'Strong' ? 9 :
+        team.tier === 'Midfield' ? 5 : 1;
+      return {
+        team,
+        order: stableNumber(`${prospect.id}:${team.id}:rival-order`) %
+          10_000,
+        interest: Math.max(
+          12,
+          Math.min(
+            86,
+            18 +
+              teamPull +
+              manufacturerFit +
+              Math.round((prospect.overall + prospect.potential) / 8) +
+              (stableNumber(`${prospect.id}:${team.id}:rival-interest`) % 13),
+          ),
+        ),
+      };
+    })
+    .sort((left, right) => left.order - right.order);
+
+  return organizations.slice(0, getInitialRivalCount(prospect)).map(({ team, interest }) => ({
+    teamId: team.id,
+    interest,
+    previousInterest: interest,
+    weeklyChange: 0,
+    enteredSeason: 1,
+    enteredWeek: 1,
+  }));
+}
+
 export function createProspectProgress(
   prospect: RecruitingProspect,
   recruitingPull: number,
@@ -72,7 +194,7 @@ export function createProspectProgress(
 ): ProspectRecruitingProgress {
   return {
     prospectId: prospect.id,
-    scoutingConfidence: 0,
+    scoutingKnowledge: 0,
     interest: Math.max(
       0,
       Math.min(
@@ -82,6 +204,10 @@ export function createProspectProgress(
           getVisibilityAdjustment(visibility),
       ),
     ),
+    signingThreshold: getSigningThreshold(prospect),
+    prospectTier: getProspectTier(prospect),
+    rivals: createInitialRivals(prospect),
+    battleHistory: [],
     engagement: 0,
     completedActionUses: {},
     actionsUsedThisWeekend: [],

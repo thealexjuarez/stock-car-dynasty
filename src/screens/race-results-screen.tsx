@@ -13,6 +13,7 @@ import { postSettlementFlow } from '@/data/race-weekend-navigation';
 import { RACE_READY_THRESHOLD } from '@/data/repair-config';
 import { getNextRace } from '@/data/starter-game-state';
 import { calculateWeekendSettlement } from '@/simulation/economy';
+import { getImmediateRecruitingRiskWarnings } from '@/simulation/recruiting';
 import { useGameSession } from '@/state/game-session';
 import { theme } from '@/theme';
 
@@ -40,6 +41,7 @@ export function RaceResultsScreen() {
   }
 
   const settlement = calculateWeekendSettlement(state.game, result);
+  const recruitingRisks = getImmediateRecruitingRiskWarnings(state.game);
   const winner = result.entries[0];
   const poleWinner = state.weekend.qualifying?.entries[0];
 
@@ -145,8 +147,25 @@ export function RaceResultsScreen() {
           <AppText variant="title">Operating Cost Shortfall</AppText>
           <AppText tone="muted">
             The team is short {money.format(settlement.operatingCostShortfall)}.
-            Cash remains at $0 and the shortfall is recorded safely.
+            Team cash stays at $0 until future earnings cover the gap.
           </AppText>
+        </AppCard>
+      ) : null}
+
+      {recruitingRisks.length > 0 ? (
+        <AppCard style={{ borderColor: theme.colors.caution, gap: theme.spacing.sm, padding: theme.spacing.md }}>
+          <AppText variant="eyebrow" tone="accent">Before the Week Advances</AppText>
+          {recruitingRisks.slice(0, 2).map((warning) => (
+            <View key={warning.prospectId} style={{ gap: 2 }}>
+              <AppText variant="caption">{warning.prospectName}</AppText>
+              <AppText variant="caption" tone="muted">{warning.message}</AppText>
+            </View>
+          ))}
+          {recruitingRisks.length > 2 ? (
+            <AppText variant="caption" tone="soft">
+              {recruitingRisks.length - 2} more recruiting battles are at immediate risk.
+            </AppText>
+          ) : null}
         </AppCard>
       ) : null}
 

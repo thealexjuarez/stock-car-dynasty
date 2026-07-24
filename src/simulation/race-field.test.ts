@@ -238,7 +238,7 @@ test('state v3 migration adds the field without resetting existing career progre
   legacy.drivers[0].exp = 88;
   const normalized = normalizeGameState(legacy as GameState);
 
-  assert.equal(normalized.stateVersion, 4);
+  assert.equal(normalized.stateVersion, 5);
   assert.equal(normalized.raceField.entries.length, 32);
   assert.equal(normalized.raceField.standings.every((row) => row.starts === 0), true);
   assert.equal(normalized.team.cash, 321_000);
