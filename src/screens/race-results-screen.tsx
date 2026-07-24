@@ -1,7 +1,8 @@
 import { useRouter, type Href } from 'expo-router';
 import { useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
+import { WeekendProgressStrip } from '@/components/race-presentation/weekend-progress-strip';
 import { AppButton } from '@/components/shared/app-button';
 import { AppCard } from '@/components/shared/app-card';
 import { AppRow } from '@/components/shared/app-row';
@@ -30,6 +31,7 @@ export function RaceResultsScreen() {
   const result = state.weekend.race;
   const isClosingRef = useRef(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [showLedger, setShowLedger] = useState(false);
 
   if (!race || !track || !result) {
     return (
@@ -44,6 +46,7 @@ export function RaceResultsScreen() {
   const recruitingRisks = getImmediateRecruitingRiskWarnings(state.game);
   const winner = result.entries[0];
   const poleWinner = state.weekend.qualifying?.entries[0];
+  const apexEntries = result.entries.filter((entry) => entry.isPlayerTeam);
 
   const advance = () => {
     if (isClosingRef.current) return;
@@ -60,120 +63,120 @@ export function RaceResultsScreen() {
       footer={
         <AppButton
           disabled={isClosing}
-          label={
-            isClosing
-              ? raceWeekendCopy.results.returningAction
-              : raceWeekendCopy.results.primaryAction
-          }
+          label={isClosing ? raceWeekendCopy.results.returningAction : raceWeekendCopy.results.primaryAction}
           onPress={advance}
         />
       }>
-      <View style={{ gap: theme.spacing.sm }}>
-        <AppText variant="eyebrow" tone="accent">
-          {raceWeekendCopy.results.eyebrow} · {track.type}
-        </AppText>
-        <AppText variant="hero">{raceWeekendCopy.results.title}</AppText>
-        <AppText tone="muted">{race.name} at {track.name} · Official</AppText>
+      <View style={{ gap: 6 }}>
+        <View style={{ alignItems: 'center', flexDirection: 'row', gap: theme.spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <AppText variant="eyebrow" tone="accent">Official Results · {track.type}</AppText>
+            <AppText numberOfLines={1} variant="title">{race.name}</AppText>
+            <AppText variant="caption" tone="muted">{track.name} · 32 cars classified</AppText>
+          </View>
+          <StatusBadge compact label="Official" tone="green" />
+        </View>
+        <WeekendProgressStrip phase="results" />
       </View>
 
-      <AppCard style={{ borderColor: theme.colors.victory, padding: theme.spacing.md }}>
-        <AppText variant="eyebrow" tone="accent">Race Winner</AppText>
-        <AppText variant="title">#{winner.carNumber} · {winner.driverName}</AppText>
-        <AppText tone="muted">
-          {winner.teamName} · started P{winner.startPosition}
-        </AppText>
-        {poleWinner ? (
-          <AppText tone="soft" variant="caption">
-            Pole: #{poleWinner.carNumber} {poleWinner.driverName}
-          </AppText>
-        ) : null}
+      <AppCard style={{ borderColor: theme.colors.victory, gap: 6, padding: theme.spacing.md }}>
+        <View style={{ alignItems: 'center', flexDirection: 'row', gap: theme.spacing.sm }}>
+          <View style={{ flex: 1 }}>
+            <AppText variant="caption" tone="accent">RACE WINNER</AppText>
+            <AppText numberOfLines={1} variant="title" style={{ fontSize: 19 }}>#{winner.carNumber} · {winner.driverName}</AppText>
+            <AppText numberOfLines={1} variant="caption" tone="muted">
+              {winner.teamName} · from P{winner.startPosition}
+            </AppText>
+          </View>
+          {poleWinner ? <StatusBadge compact label={`Pole #${poleWinner.carNumber}`} tone="blue" /> : null}
+        </View>
       </AppCard>
 
-      {result.entries.filter((entry) => entry.isPlayerTeam).map((entry) => {
-        const vehicle = state.game.vehicles.find((item) => item.id === entry.vehicleId);
-        const postRaceCondition = Math.max(
-          0,
-          (vehicle?.condition ?? 0) - entry.conditionLoss,
-        );
-        return (
-          <AppCard
-            key={entry.id}
-            style={{ borderColor: theme.colors.caution, gap: theme.spacing.sm, padding: theme.spacing.md }}>
-          <View style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }}>
-            <View>
-              <AppText variant="title">P{entry.finishPosition} · Car #{entry.carNumber}</AppText>
-              <AppText tone="muted">{entry.driverName} · started P{entry.startPosition}</AppText>
+      <AppCard style={{ gap: 0, padding: theme.spacing.sm }}>
+        <AppText variant="caption" tone="accent" style={{ padding: 4 }}>APEX SCORECARD</AppText>
+        {apexEntries.map((entry) => {
+          const vehicle = state.game.vehicles.find((item) => item.id === entry.vehicleId);
+          const postRaceCondition = Math.max(0, (vehicle?.condition ?? 0) - entry.conditionLoss);
+          const payout = settlement.winningsByCar.find((line) => line.vehicleId === entry.vehicleId)?.amount ?? 0;
+          return (
+            <View
+              key={entry.id}
+              style={{ borderTopColor: theme.colors.border, borderTopWidth: 1, gap: 4, padding: theme.spacing.sm }}>
+              <View style={{ alignItems: 'center', flexDirection: 'row', gap: theme.spacing.sm }}>
+                <View style={{ width: 48 }}>
+                  <AppText variant="title" style={{ fontSize: 20 }}>P{entry.finishPosition}</AppText>
+                  <AppText variant="caption" tone="soft">from P{entry.startPosition}</AppText>
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <AppText numberOfLines={1}>#{entry.carNumber} · {entry.driverName}</AppText>
+                  <AppText variant="caption" tone="muted">{money.format(payout)} · +{entry.exp} EXP</AppText>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                  <StatusBadge compact label={entry.status} tone={entry.status === 'DNF' ? 'red' : 'green'} />
+                  <AppText
+                    variant="caption"
+                    style={{ color: postRaceCondition >= RACE_READY_THRESHOLD ? theme.colors.victory : theme.colors.trackRed }}>
+                    {postRaceCondition}% · {postRaceCondition >= RACE_READY_THRESHOLD ? 'Ready' : 'Needs Work'}
+                  </AppText>
+                </View>
+              </View>
+              <AppText variant="caption" tone="soft">Condition impact: −{entry.conditionLoss}%</AppText>
             </View>
-            <StatusBadge label={entry.status} tone={entry.status === 'DNF' ? 'red' : 'green'} />
-          </View>
-          <AppRow
-            compact
-            label={raceWeekendCopy.results.payout}
-            detail={money.format(
-              settlement.winningsByCar.find(
-                (line) => line.vehicleId === entry.vehicleId,
-              )?.amount ?? 0,
-            )}
-          />
-          <AppRow compact label={raceWeekendCopy.results.exp} detail={`+${entry.exp}`} />
-            <AppRow compact label={raceWeekendCopy.results.damage} detail={`-${entry.conditionLoss}%`} />
-            <AppRow
-              compact
-              label="Post-Race Readiness"
-              detail={
-                postRaceCondition >= RACE_READY_THRESHOLD
-                  ? `${postRaceCondition}% · Race Ready`
-                  : `${postRaceCondition}% · Needs Work`
-              }
-            />
-          </AppCard>
-        );
-      })}
+          );
+        })}
+      </AppCard>
 
-      <AppCard style={{ borderColor: theme.colors.victory, padding: theme.spacing.md }}>
-        <AppText variant="eyebrow" tone="accent">Weekend Earnings</AppText>
-        <AppRow compact label="Race Winnings" detail={money.format(settlement.totalRaceWinnings)} />
-        <AppRow compact label="Sponsor Payment" detail={money.format(settlement.sponsorIncome)} />
-        <AppRow compact label="Operating Cost" detail={`-${money.format(settlement.operatingCostBase)}`} />
-        {settlement.budgetFixerDiscount > 0 ? (
-          <AppRow compact label="Budget Fixer" detail={`+${money.format(settlement.budgetFixerDiscount)}`} />
+      <AppCard style={{ gap: 6, padding: theme.spacing.md }}>
+        <View style={{ alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }}>
+          <View>
+            <AppText variant="caption" tone="accent">WEEKEND NET</AppText>
+            <AppText variant="title" style={{ fontSize: 20 }}>{money.format(settlement.netWeekend)}</AppText>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <AppText variant="caption" tone="soft">Cash after settlement</AppText>
+            <AppText>{money.format(settlement.cashAfter)}</AppText>
+          </View>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showLedger }}
+          onPress={() => setShowLedger((current) => !current)}
+          style={{ paddingVertical: 3 }}>
+          <AppText variant="caption" tone="accent">{showLedger ? 'Hide settlement ledger' : 'Show settlement ledger'}</AppText>
+        </Pressable>
+        {showLedger ? (
+          <View style={{ borderTopColor: theme.colors.border, borderTopWidth: 1, paddingTop: 5 }}>
+            <AppRow compact label="Race Winnings" detail={money.format(settlement.totalRaceWinnings)} />
+            <AppRow compact label="Sponsor Payment" detail={money.format(settlement.sponsorIncome)} />
+            <AppRow compact label="Operating Cost" detail={`-${money.format(settlement.operatingCostBase)}`} />
+            {settlement.budgetFixerDiscount > 0 ? (
+              <AppRow compact label="Budget Fixer" detail={`+${money.format(settlement.budgetFixerDiscount)}`} />
+            ) : null}
+          </View>
         ) : null}
-        <AppRow compact label="Net Weekend" detail={money.format(settlement.netWeekend)} />
-        <AppRow compact label="Updated Team Cash" detail={money.format(settlement.cashAfter)} />
       </AppCard>
 
       {settlement.operatingCostShortfall > 0 ? (
         <AppCard style={{ borderColor: theme.colors.trackRed, padding: theme.spacing.md }}>
-          <AppText variant="title">Operating Cost Shortfall</AppText>
-          <AppText tone="muted">
-            The team is short {money.format(settlement.operatingCostShortfall)}.
-            Team cash stays at $0 until future earnings cover the gap.
+          <AppText variant="title" style={{ fontSize: 18 }}>Operating Cost Shortfall</AppText>
+          <AppText variant="caption" tone="muted">
+            Apex is short {money.format(settlement.operatingCostShortfall)}. Cash remains at $0 until earnings cover the gap.
           </AppText>
         </AppCard>
       ) : null}
 
       {recruitingRisks.length > 0 ? (
-        <AppCard style={{ borderColor: theme.colors.caution, gap: theme.spacing.sm, padding: theme.spacing.md }}>
-          <AppText variant="eyebrow" tone="accent">Before the Week Advances</AppText>
+        <AppCard style={{ borderColor: theme.colors.caution, gap: 4, padding: theme.spacing.md }}>
+          <AppText variant="caption" tone="accent">RECRUITING WATCH</AppText>
           {recruitingRisks.slice(0, 2).map((warning) => (
-            <View key={warning.prospectId} style={{ gap: 2 }}>
-              <AppText variant="caption">{warning.prospectName}</AppText>
-              <AppText variant="caption" tone="muted">{warning.message}</AppText>
-            </View>
-          ))}
-          {recruitingRisks.length > 2 ? (
-            <AppText variant="caption" tone="soft">
-              {recruitingRisks.length - 2} more recruiting battles are at immediate risk.
+            <AppText key={warning.prospectId} variant="caption" tone="muted">
+              {warning.prospectName}: {warning.message}
             </AppText>
-          ) : null}
+          ))}
         </AppCard>
       ) : null}
 
-      <AppButton
-        label="View Full Official Results"
-        onPress={() => router.push('/full-results' as Href)}
-        variant="secondary"
-      />
+      <AppButton label="View Full Official Results" onPress={() => router.push('/full-results' as Href)} variant="secondary" />
     </Screen>
   );
 }

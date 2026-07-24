@@ -25,6 +25,11 @@ import { postSettlementFlow } from '@/data/race-weekend-navigation';
 import { starterGameState } from '@/data/starter-game-state';
 import { tabs } from '@/data/app-shell';
 import {
+  LEAGUE_MIN_VISIBLE_ROWS,
+  TEAM_ACTION_CENTER_LIMIT,
+  TIMING_TOWER_MIN_FONT_SIZE,
+} from '@/presentation/core-screen-density';
+import {
   HOME_ACTION_CENTER_LIMIT,
   HOME_ENTRY_ROW_HEIGHT,
   selectHomeDashboard,
@@ -1087,4 +1092,52 @@ test('home dashboard action center is capped and economy values are not duplicat
   assert.equal(count('dashboard.exp'), 1);
   assert.equal(source.includes('footer='), false);
   assert.ok(source.includes('overflow: \'hidden\''));
+});
+
+test('core management screens expose compact rows, disclosures, and working routes', () => {
+  const team = readFileSync('src/screens/team-screen.tsx', 'utf8');
+  const league = readFileSync('src/screens/league-screen.tsx', 'utf8');
+  const preview = readFileSync('src/screens/race-preview-screen.tsx', 'utf8');
+  const results = readFileSync('src/screens/race-results-screen.tsx', 'utf8');
+
+  assert.equal(TEAM_ACTION_CENTER_LIMIT, 5);
+  assert.equal(LEAGUE_MIN_VISIBLE_ROWS, 8);
+  assert.match(team, /Race Entries/);
+  assert.match(team, /Staff Wall/);
+  assert.match(team, /Repair Bay/);
+  assert.match(team, /Contracts & Reserve/);
+  assert.match(team, /Action Center/);
+  assert.match(team, /\/drivers\/\[id\]/);
+  assert.match(team, /\/vehicles\/\[number\]/);
+  assert.match(preview, /More weekend details/);
+  assert.match(preview, /WeekendProgressStrip/);
+  assert.match(results, /APEX SCORECARD/);
+  assert.match(results, /View Full Official Results/);
+  assert.match(league, /Drivers/);
+  assert.match(league, /Teams/);
+  assert.match(league, /Makes/);
+  assert.match(league, /Schedule/);
+});
+
+test('weekend strip and timing tower retain readable mobile contracts', () => {
+  const strip = readFileSync(
+    'src/components/race-presentation/weekend-progress-strip.tsx',
+    'utf8',
+  );
+  const timing = readFileSync(
+    'src/components/race-presentation/timing-tower.tsx',
+    'utf8',
+  );
+  const shell = readFileSync(
+    'src/components/race-presentation/race-presentation-shell.tsx',
+    'utf8',
+  );
+
+  for (const label of ['Briefing', 'Practice', 'Qualify', 'Race', 'Results']) {
+    assert.match(strip, new RegExp(label));
+  }
+  assert.equal(TIMING_TOWER_MIN_FONT_SIZE, 10);
+  assert.match(timing, /fontSize: compact \? 10/);
+  assert.match(shell, /timingWidth/);
+  assert.match(shell, /compactDriverCards/);
 });

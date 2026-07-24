@@ -95,7 +95,7 @@ export function SessionControlBar({
             borderColor: isPaused ? theme.colors.victory : theme.colors.border,
             borderRadius: 6,
             borderWidth: 1,
-            height: 32,
+            height: 40,
             justifyContent: 'center',
             opacity: pressed ? 0.78 : 1,
             width: 64,
@@ -122,7 +122,7 @@ export function SessionControlBar({
                   borderColor: selected ? theme.colors.fuel : theme.colors.border,
                   borderRadius: 5,
                   borderWidth: 1,
-                  height: 32,
+                  height: 40,
                   justifyContent: 'center',
                   opacity: pressed ? 0.78 : 1,
                   width: 32,
@@ -146,7 +146,7 @@ export function SessionControlBar({
               backgroundColor: theme.colors.victory,
               borderRadius: 6,
               flex: 1,
-              height: 32,
+              height: 40,
               justifyContent: 'center',
               opacity: pressed ? 0.78 : 1,
               paddingHorizontal: 6,
@@ -168,7 +168,7 @@ export function SessionControlBar({
             style={{
               alignItems: 'center',
               flex: 1,
-              height: 32,
+              height: 40,
               justifyContent: 'center',
             }}>
             <AppText numberOfLines={1} variant="caption" tone="soft" style={{ fontSize: 8 }}>

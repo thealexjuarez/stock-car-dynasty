@@ -26,7 +26,7 @@ export function SessionStatusStrip({
         borderRadius: theme.cards.radius,
         borderWidth: 1,
         gap: 3,
-        minHeight: 46,
+        minHeight: 42,
         paddingHorizontal: theme.spacing.sm,
         paddingVertical: 5,
       }}>
