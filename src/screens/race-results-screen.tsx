@@ -32,6 +32,8 @@ export function RaceResultsScreen() {
   const isClosingRef = useRef(false);
   const [isClosing, setIsClosing] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
+  const [expandedStrategyEntryId, setExpandedStrategyEntryId] =
+    useState<string>();
 
   if (!race || !track || !result) {
     return (
@@ -98,6 +100,10 @@ export function RaceResultsScreen() {
           const vehicle = state.game.vehicles.find((item) => item.id === entry.vehicleId);
           const postRaceCondition = Math.max(0, (vehicle?.condition ?? 0) - entry.conditionLoss);
           const payout = settlement.winningsByCar.find((line) => line.vehicleId === entry.vehicleId)?.amount ?? 0;
+          const depth = result.depthFacts?.entryFacts.find(
+            (fact) => fact.entryId === entry.id,
+          );
+          const expanded = expandedStrategyEntryId === entry.id;
           return (
             <View
               key={entry.id}
@@ -121,6 +127,61 @@ export function RaceResultsScreen() {
                 </View>
               </View>
               <AppText variant="caption" tone="soft">Condition impact: −{entry.conditionLoss}%</AppText>
+              {depth ? (
+                <>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded }}
+                    onPress={() =>
+                      setExpandedStrategyEntryId((current) =>
+                        current === entry.id ? undefined : entry.id,
+                      )
+                    }
+                    style={{ gap: 2, minHeight: 40, justifyContent: 'center' }}>
+                    <AppText numberOfLines={1} variant="caption" tone="accent">
+                      S1 {depth.plan.stageCalls[1] === 'Flip the Stage' ? 'Flip' : 'Chase'} ·
+                      S2 {depth.plan.stageCalls[2] === 'Flip the Stage' ? 'Flip' : 'Chase'} ·
+                      {' '}{depth.actualStopCount} stops · {depth.cleanRace ? 'Clean Race' : 'Eventful'}
+                    </AppText>
+                    <AppText numberOfLines={1} variant="caption" tone="soft">
+                      {depth.plan.finalStagePitPlan} · P{depth.expectedPosition} expected → P{depth.finishPosition}
+                    </AppText>
+                  </Pressable>
+                  {expanded ? (
+                    <View
+                      style={{
+                        backgroundColor: theme.colors.garage,
+                        borderCurve: 'continuous',
+                        borderRadius: 6,
+                        gap: 3,
+                        padding: 6,
+                      }}>
+                      {depth.strategyReasonCodes.map((reason) => (
+                        <AppText key={reason} variant="caption" tone="muted">
+                          {reason}
+                        </AppText>
+                      ))}
+                      <AppText variant="caption" tone="soft">
+                        Tires finished {depth.finishingTireCondition}% (low {depth.minimumTireCondition}%)
+                        {' · '}Fuel {depth.finishingFuel}% (low {depth.minimumFuel}%)
+                      </AppText>
+                      <AppText variant="caption" tone="soft">
+                        Equipment stress {depth.equipmentStress} · Routine wear −{depth.routineConditionLoss}
+                        {' · '}Incident damage −{depth.incidentConditionLoss + depth.severeEventConditionLoss}
+                      </AppText>
+                      {depth.archetypeReasonCodes.map((reason) => (
+                        <AppText key={reason} variant="caption" tone="accent">
+                          {reason}
+                        </AppText>
+                      ))}
+                    </View>
+                  ) : null}
+                </>
+              ) : result.legacyRaceDepth ? (
+                <AppText variant="caption" tone="muted">
+                  Detailed pit and stage history is unavailable for this legacy race.
+                </AppText>
+              ) : null}
             </View>
           );
         })}

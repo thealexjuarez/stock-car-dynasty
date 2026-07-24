@@ -1,4 +1,5 @@
 import { resolveRacePayout } from '@/data/economy-config';
+import { getEffectiveDriverStats } from '@/data/archetype-config';
 import { raceFieldTuning } from '@/data/race-field-config';
 import { raceWeekendTuning as tuning } from '@/data/race-weekend-config';
 import { getNextRace } from '@/data/starter-game-state';
@@ -7,11 +8,16 @@ import {
   getSettlementTransactionId,
 } from '@/simulation/economy';
 import { applyRecruitingWeekendSettlement } from '@/simulation/recruiting';
-import { applyRaceFieldSettlement } from '@/simulation/race-field';
-import { getSeededUnit, getSeededVariance } from '@/simulation/seeded-variance';
+import {
+  applyRaceFieldSettlement,
+  getFieldDriver,
+} from '@/simulation/race-field';
+import { resolveRaceDepth } from '@/simulation/race-depth';
+import { getSeededVariance } from '@/simulation/seeded-variance';
 import { updateVehicleCondition } from '@/simulation/vehicle-repair';
 import type { Driver, GameState, Track } from '@/types/game';
 import type { PracticeResult } from '@/types/practice';
+import type { RacePlan } from '@/types/race-depth';
 import type {
   QualifyingEntryResult,
   QualifyingResult,
@@ -37,7 +43,8 @@ function getPlayerParts(state: GameState, entrant: WeekendEntrant) {
 }
 
 function getTrackAbility(driver: Driver, track: Track) {
-  return average(track.keyStats.map((stat) => driver.stats[stat]));
+  const effectiveStats = getEffectiveDriverStats(driver);
+  return average(track.keyStats.map((stat) => effectiveStats[stat]));
 }
 
 function getPracticeEntry(practice: PracticeResult, entrant: WeekendEntrant) {
@@ -70,6 +77,17 @@ export function resolveQualifying(
         vehicle.condition * weights.condition +
         state.team.engineeringQuality * weights.crew +
         (practiceEntry?.qualifyingPaceBonus ?? 0);
+    } else {
+      const fieldEntry = state.raceField.entries.find(
+        (entry) => entry.id === entrant.id,
+      );
+      if (!fieldEntry) throw new Error(`Missing field entry: ${entrant.id}`);
+      const driver = getFieldDriver(state, fieldEntry);
+      const effectiveStats = getEffectiveDriverStats(driver);
+      score =
+        average(track.keyStats.map((stat) => effectiveStats[stat])) *
+          raceFieldTuning.driverRatingWeights.trackStats +
+        driver.overall * raceFieldTuning.driverRatingWeights.overall;
     }
 
     score += getSeededVariance(`${seed}:qualifying:${entrant.id}`, tuning.qualifyingVariance);
@@ -90,16 +108,12 @@ function getExp(position: number, finished: boolean) {
   );
 }
 
-function getConditionLoss(seed: string, dnf: boolean) {
-  const unit = getSeededUnit(`${seed}:damage`);
-  return dnf ? 8 + Math.floor(unit * 11) : Math.floor(unit * 6);
-}
-
 export function resolveRace(
   state: GameState,
   qualifying: QualifyingResult,
   practice: PracticeResult,
   seed: string,
+  playerPlans: Readonly<Record<string, RacePlan>> = {},
 ): RaceResult {
   const { race, track } = getNextRace(state);
 
@@ -107,58 +121,16 @@ export function resolveRace(
     throw new Error('Cannot race without a matching current grid');
   }
 
-  const provisional = qualifying.entries.map((entrant) => {
-    let ability = entrant.baselineRating;
-    let dnfRisk: number = tuning.cautionDnfRisk[track.cautionRisk];
-
-    if (entrant.isPlayerTeam) {
-      const { driver, vehicle } = getPlayerParts(state, entrant);
-      const practiceEntry = getPracticeEntry(practice, entrant);
-      const weights = raceFieldTuning.playerWeekendWeights.race;
-      ability =
-        getTrackAbility(driver, track) * weights.trackStats +
-        driver.overall * weights.overall +
-        vehicle.performance * weights.vehiclePerformance +
-        vehicle.condition * weights.condition +
-        state.team.pitCrewQuality * weights.crew +
-        (practiceEntry?.racePaceBonus ?? 0);
-      dnfRisk = Math.max(0.01, dnfRisk - driver.stats.Awareness / 2_000);
-    }
-
-    const dnf = getSeededUnit(`${seed}:incident:${entrant.id}`) < dnfRisk;
-    const gridEffect = (qualifying.entries.length - entrant.position) * 0.12;
-    const score =
-      ability +
-      gridEffect +
-      getSeededVariance(`${seed}:race:${entrant.id}`, tuning.raceVariance) -
-      (dnf ? 100 : 0);
-
-    return { entrant, dnf, score: round(score) };
+  const resolution = resolveRaceDepth({
+    state,
+    qualifying,
+    practice,
+    seed,
+    playerPlans,
+    resolvePayout: resolveRacePayout,
+    resolveExp: getExp,
   });
-
-  const entries: RaceEntryResult[] = provisional
-    .sort(
-      (left, right) =>
-        right.score - left.score ||
-        left.entrant.position - right.entrant.position ||
-        left.entrant.id.localeCompare(right.entrant.id),
-    )
-    .map(({ entrant, dnf, score }, index) => {
-      const finishPosition = index + 1;
-      const isPlayerTeam = entrant.isPlayerTeam;
-      return {
-        ...entrant,
-        startPosition: entrant.position,
-        finishPosition,
-        score,
-        status: dnf ? 'DNF' : 'Running',
-        payout: isPlayerTeam ? resolveRacePayout(finishPosition) : 0,
-        exp: isPlayerTeam ? getExp(finishPosition, !dnf) : 0,
-        conditionLoss: isPlayerTeam
-          ? getConditionLoss(`${seed}:${entrant.id}`, dnf)
-          : 0,
-      };
-    });
+  const entries: RaceEntryResult[] = resolution.entries;
   const playerEntries = entries.filter((entry) => entry.isPlayerTeam);
 
   return {
@@ -171,6 +143,7 @@ export function resolveRace(
       (total, entry) => total + entry.conditionLoss,
       0,
     ),
+    depthFacts: resolution.facts,
   };
 }
 

@@ -937,7 +937,7 @@ test('migration adds recruiting defaults without retroactive RP or replaying set
   legacy.drivers[0].exp = 77;
   legacy.economy.processedTransactionIds = ['settlement:old'];
   const normalized = normalizeGameState(legacy as GameState);
-  assert.equal(normalized.stateVersion, 5);
+  assert.equal(normalized.stateVersion, 6);
   assert.equal(normalized.recruiting.spendableRp, 100);
   assert.equal(normalized.recruiting.processedTransactionIds.length, 0);
   assert.equal(normalized.team.cash, 123_456);

@@ -1,9 +1,10 @@
 import type { ManufacturerId } from '@/types/game';
+import type { ClosingPace, TireLabel } from '@/types/race-depth';
 
 export type RaceSessionKind = 'qualifying' | 'race';
 export type PlaybackSpeed = 1 | 2 | 4;
 export type DriverPaceMode = 'Conserve' | 'Balanced' | 'Push';
-export type TireStatus = 'New' | 'Good' | 'Used' | 'Worn';
+export type TireStatus = TireLabel;
 export type OvalPresentationPhase =
   | 'Front Straight'
   | 'Turns 1–2'
@@ -39,6 +40,19 @@ export type RacePresentationEntrant = {
   tirePercent: number;
   fuelPercent: number;
   carCondition?: number;
+  planLabel?: string;
+  nextServiceLabel?: string;
+  segmentSnapshots?: readonly {
+    segment: number;
+    position: number;
+    tirePercent: number;
+    tireStatus: TireStatus;
+    fuelPercent: number;
+    pace: ClosingPace;
+    pitStatus: string;
+    caution: boolean;
+    damageConditionLoss: number;
+  }[];
   sprite: CarSpriteMetadata;
 };
 
@@ -88,4 +102,8 @@ export type RacePresentationModel = {
   activeQualifyingEntryId?: string;
   qualifyingRunNumber?: number;
   ovalPhase: OvalPresentationPhase;
+  currentSegment: number;
+  currentStage: number;
+  currentSegmentLabel: string;
+  cautionState: 'Green' | 'Caution' | 'Red Flag';
 };

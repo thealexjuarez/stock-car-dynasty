@@ -10,13 +10,20 @@ type SessionStatusStripProps = {
   config: RacePresentationConfig;
   currentLap: number;
   trackName: string;
+  segmentLabel?: string;
+  stageLabel?: string;
+  cautionState?: 'Green' | 'Caution' | 'Red Flag';
 };
 
 export function SessionStatusStrip({
   config,
   currentLap,
   trackName,
+  segmentLabel,
+  stageLabel,
+  cautionState,
 }: SessionStatusStripProps) {
+  const displayedCaution = cautionState ?? config.cautionState;
   return (
     <View
       style={{
@@ -39,13 +46,13 @@ export function SessionStatusStrip({
         </AppText>
         <StatusBadge
           compact
-          label={config.cautionState}
-          tone={config.cautionState === 'Green' ? 'green' : 'yellow'}
+          label={displayedCaution}
+          tone={displayedCaution === 'Green' ? 'green' : displayedCaution === 'Red Flag' ? 'red' : 'yellow'}
         />
       </View>
       <View style={{ alignItems: 'center', flexDirection: 'row', gap: 8 }}>
         <AppText variant="caption" style={{ fontSize: 9 }}>
-          {config.sessionLabel}
+          {stageLabel ? `${stageLabel} · ${segmentLabel}` : config.sessionLabel}
         </AppText>
         <AppText
           variant="caption"

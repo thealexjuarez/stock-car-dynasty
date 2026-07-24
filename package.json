@@ -41,7 +41,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-typescript-paths.mjs --test src/simulation/race-weekend.test.ts src/simulation/recruiting.test.ts src/simulation/race-field.test.ts"
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/register-typescript-paths.mjs --test src/simulation/race-weekend.test.ts src/simulation/recruiting.test.ts src/simulation/race-field.test.ts src/simulation/race-depth.test.ts"
   },
   "private": true
 }

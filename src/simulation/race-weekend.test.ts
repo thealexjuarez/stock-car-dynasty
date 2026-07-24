@@ -290,13 +290,13 @@ test('the same event seed produces identical qualifying and race outcomes', () =
       .filter((entry) => entry.isPlayerTeam)
       .map((entry) => [entry.carNumber, entry.finishPosition]),
     [
-      ['45', 8],
-      ['46', 17],
+      ['46', 7],
+      ['45', 18],
     ],
   );
   assert.equal(first.weekend.race?.playerPayout, 29_000);
-  assert.equal(first.weekend.race?.playerExp, 216);
-  assert.equal(first.weekend.race?.playerConditionLoss, 5);
+  assert.equal(first.weekend.race?.playerExp, 224);
+  assert.equal(first.weekend.race?.playerConditionLoss, 23);
 });
 
 test('every finishing position through 36 uses the locked payout tier', () => {
@@ -326,8 +326,8 @@ test('both Apex cars receive their correct payout tiers', () => {
       line.amount,
     ]),
     [
-      ['45', 8, 18_000],
-      ['46', 17, 11_000],
+      ['46', 7, 18_000],
+      ['45', 18, 11_000],
     ],
   );
   assert.equal(settlement.totalRaceWinnings, 29_000);
@@ -785,7 +785,7 @@ test('older state normalizes canon and new fields without resetting progress', (
     (driver) => driver.id === 'driver-aiden-voss',
   )!;
 
-  assert.equal(normalized.stateVersion, 5);
+  assert.equal(normalized.stateVersion, 6);
   assert.equal(normalized.team.manufacturerId, 'chevrolat');
   assert.equal(normalized.team.cash, 412_345);
   assert.equal(normalized.week, 3);
