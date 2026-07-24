@@ -383,7 +383,7 @@ test('compact timing tower keeps readable text and the ten-row portrait cap', ()
     'utf8',
   );
 
-  assert.match(timingTowerSource, /compact \? 9 : 11/);
+  assert.match(timingTowerSource, /compact \? 10 : 11/);
   assert.match(timingTowerSource, /initialNumToRender=\{10\}/);
   assert.match(timingTowerSource, /maxToRenderPerBatch=\{10\}/);
 });

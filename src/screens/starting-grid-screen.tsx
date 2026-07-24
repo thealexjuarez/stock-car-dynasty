@@ -1,6 +1,7 @@
 import { useRouter, type Href } from 'expo-router';
 import { View } from 'react-native';
 
+import { WeekendProgressStrip } from '@/components/race-presentation/weekend-progress-strip';
 import { AppButton } from '@/components/shared/app-button';
 import { AppCard } from '@/components/shared/app-card';
 import { AppRow } from '@/components/shared/app-row';
@@ -48,12 +49,13 @@ export function StartingGridScreen() {
       footer={
         <AppButton label={raceWeekendCopy.grid.primaryAction} onPress={startRace} />
       }>
-      <View style={{ gap: theme.spacing.sm }}>
+      <View style={{ gap: 6 }}>
         <AppText variant="eyebrow" tone="accent">
           {raceWeekendCopy.grid.eyebrow} · {track.type}
         </AppText>
-        <AppText variant="hero">{raceWeekendCopy.grid.title}</AppText>
-        <AppText tone="muted">{race.name} at {track.name} · 32 cars</AppText>
+        <AppText variant="title">{raceWeekendCopy.grid.title}</AppText>
+        <AppText numberOfLines={1} variant="caption" tone="muted">{race.name} at {track.name} · 32 cars</AppText>
+        <WeekendProgressStrip phase="grid" />
       </View>
 
       <AppCard style={{ borderColor: theme.colors.caution, padding: theme.spacing.md }}>

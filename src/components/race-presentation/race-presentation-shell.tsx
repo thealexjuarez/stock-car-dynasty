@@ -23,9 +23,9 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
   const { state, showGrid, showResults } = useGameSession();
   const { height, width } = useWindowDimensions();
   const compact = width < 430 || height < 760;
-  const compactDriverCards = height < 760;
-  const timingWidth = Math.max(116, Math.min(132, width * 0.32));
-  const trackHeight = Math.max(220, Math.min(280, height * 0.35));
+  const compactDriverCards = width < 430 || height < 820;
+  const timingWidth = Math.max(128, Math.min(142, width * 0.35));
+  const trackHeight = Math.max(232, Math.min(268, height * 0.33));
   const framePadding = compact ? 6 : 8;
   const { track } = getRacePresentationContext(state.game);
   const {

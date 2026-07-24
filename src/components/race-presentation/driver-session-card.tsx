@@ -59,14 +59,14 @@ export function DriverSessionCard({
             gap: 5,
           }}>
           <AppText variant="body" style={{ fontSize: compact ? 13 : 15 }}>#{entry.carNumber}</AppText>
-          <AppText numberOfLines={1} variant="caption" tone="muted" style={{ flex: 1, fontSize: compact ? 9 : 11 }}>
+          <AppText numberOfLines={1} variant="caption" tone="muted" style={{ flex: 1, fontSize: compact ? 10 : 11 }}>
             {entry.driverName}
           </AppText>
           <StatusBadge compact label={`P${runningEntry.position}`} tone="red" />
           {activeCamera ? <StatusBadge compact label="CAM" tone="blue" /> : null}
         </View>
         <View style={{ alignItems: 'center', flexDirection: 'row', gap: 5, justifyContent: 'space-between' }}>
-          <AppText numberOfLines={1} variant="caption" tone="soft" style={{ fontSize: 8 }}>
+          <AppText numberOfLines={1} variant="caption" tone="soft" style={{ fontSize: compact ? 9 : 10 }}>
             {sessionState}
           </AppText>
           <AppText variant="caption" style={{ fontSize: 8, fontVariant: ['tabular-nums'] }}>
@@ -95,8 +95,8 @@ export function DriverSessionCard({
 function Telemetry({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ flex: 1, gap: 0, minWidth: 0 }}>
-      <AppText variant="eyebrow" tone="soft" style={{ fontSize: 7, lineHeight: 10 }}>{label}</AppText>
-      <AppText numberOfLines={1} variant="caption" style={{ fontSize: 9, lineHeight: 11 }}>{value}</AppText>
+      <AppText variant="eyebrow" tone="soft" style={{ fontSize: 8, lineHeight: 10 }}>{label}</AppText>
+      <AppText numberOfLines={1} variant="caption" style={{ fontSize: 10, lineHeight: 12 }}>{value}</AppText>
     </View>
   );
 }

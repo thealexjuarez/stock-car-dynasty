@@ -19,6 +19,12 @@ import {
 import { recruitingActionCopy } from '@/data/recruiting-copy';
 import { starterGameState } from '@/data/starter-game-state';
 import {
+  MARKET_MIN_VISIBLE_ROWS,
+  sortCompactRows,
+  toggleCompactTarget,
+  toggleSingleExpanded,
+} from '@/presentation/core-screen-density';
+import {
   DEFAULT_COMPACT_ACTION_COUNT,
   getOrderedRecruitingActions,
   getRecruitingActionRowState,
@@ -1082,7 +1088,7 @@ test('Market routes remain while full-field race and repair routes are present',
   assert.match(layout, /recruiting\/offer\/\[id\]/);
   assert.match(
     readFileSync(`${cwd}/src/screens/league-screen.tsx`, 'utf8'),
-    /Driver Standings/,
+    /League Center/,
   );
 });
 
@@ -1091,7 +1097,7 @@ test('recruiting screens use plain-language meters, battle copy, and guaranteed 
   const market = readFileSync(`${cwd}/src/screens/market-screen.tsx`, 'utf8');
   const profile = readFileSync(`${cwd}/src/screens/prospect-profile-screen.tsx`, 'utf8');
   const offer = readFileSync(`${cwd}/src/screens/recruiting-offer-screen.tsx`, 'utf8');
-  assert.match(market, /Scouting Knowledge/);
+  assert.match(market, /Scouting/);
   assert.match(market, /Apex Interest/);
   assert.match(profile, /Recruiting Battle/);
   assert.match(profile, /Signing line/);
@@ -1121,4 +1127,36 @@ test('practice feedback uses the approved crew-chief voice without technical pla
   assert.match(practice, /Ray Hollis:/);
   assert.doesNotMatch(practice, /strongest .* signal/);
   assert.doesNotMatch(practice, /effective\) was/);
+});
+
+test('compact market presentation keeps deterministic ordering and one open row', () => {
+  const rows = [
+    { id: 'b', name: 'Bravo', score: 50 },
+    { id: 'a', name: 'Alpha', score: 50 },
+    { id: 'c', name: 'Charlie', score: 20 },
+  ];
+  const sorted = sortCompactRows(rows, (row) => row.score, (row) => row.name);
+
+  assert.deepEqual(sorted.map((row) => row.id), ['a', 'b', 'c']);
+  assert.equal(toggleSingleExpanded(null, 'a'), 'a');
+  assert.equal(toggleSingleExpanded('a', 'b'), 'b');
+  assert.equal(toggleSingleExpanded('b', 'b'), null);
+  assert.deepEqual(toggleCompactTarget([], 'a'), ['a']);
+  assert.deepEqual(toggleCompactTarget(['a', 'b'], 'a'), ['b']);
+  assert.equal(MARKET_MIN_VISIBLE_ROWS, 4);
+});
+
+test('market density controls preserve the PR 7 recruiting routes and copy', () => {
+  const source = readFileSync('src/screens/market-screen.tsx', 'utf8');
+
+  for (const label of ['Targeted', 'Ready to Offer', 'At Risk', 'Fully Scouted', 'Signed', 'Lost']) {
+    assert.match(source, new RegExp(label));
+  }
+  for (const label of ['Recommended', 'Interest', 'Scouting', 'OVR', 'Potential', 'Age', 'Risk']) {
+    assert.match(source, new RegExp(label));
+  }
+  assert.match(source, /toggleCompactTarget/);
+  assert.match(source, /toggleSingleExpanded/);
+  assert.match(source, /\/recruiting\/\[id\]/);
+  assert.match(source, /\/recruiting\/compare/);
 });

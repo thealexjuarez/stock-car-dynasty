@@ -36,7 +36,7 @@ export function DriverCommandArea({
                 borderRadius: 6,
                 borderWidth: 1,
                 flex: 1,
-                minHeight: compact ? 24 : 30,
+                minHeight: compact ? 40 : 42,
                 justifyContent: 'center',
                 opacity: pressed ? 0.75 : 1,
                 paddingHorizontal: 5,
