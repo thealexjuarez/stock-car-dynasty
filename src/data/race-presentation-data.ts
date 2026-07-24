@@ -1,6 +1,11 @@
-import { raceWeekendTuning } from '@/data/race-weekend-config';
+import { raceFieldTuning } from '@/data/race-field-config';
 import { raceWeekendCopy } from '@/data/race-weekend-copy';
 import { getNextRace, starterGameState } from '@/data/starter-game-state';
+import {
+  calculateFieldEntryRating,
+  getFieldDriver,
+  getFieldOrganization,
+} from '@/simulation/race-field';
 import type { GameState } from '@/types/game';
 import type { RaceWeekendState, WeekendEntrant } from '@/types/race-weekend';
 import type {
@@ -13,14 +18,13 @@ import type {
 /**
  * PRESENTATION-ONLY SESSION ASSUMPTIONS.
  *
- * The vNext Bible locks the 32-car ERCA grid and race-weekend order, but not
- * qualifying format, lap counts, telemetry, camera range, or sample motion.
- * Every temporary presentation value lives here so future simulation work can
- * replace it without rewriting the HUD or scene components.
+ * The ERCA field size is authoritative. Qualifying duration, lap counts,
+ * telemetry, camera range, and sample motion remain provisional presentation
+ * values and are centralized here for later tuning.
  */
 export const racePresentationAssumptions = {
-  canonicalFieldSize: 32,
-  prototypeFieldSize: 12,
+  canonicalFieldSize: raceFieldTuning.fieldSize,
+  fieldSize: raceFieldTuning.fieldSize,
   visibleCarLimit: 7,
   spriteLogicalWidth: 108,
   spriteLogicalHeight: 44,
@@ -41,92 +45,27 @@ export const racePresentationAssumptions = {
   temperatureFahrenheit: 78,
   weather: 'Clear',
   trackCondition: 'Dry',
+  presentationPaceBase: 0.972,
+  presentationPaceRatingScale: 0.00045,
 } as const;
 
 const sprite = (
   bodyColor: string,
   accentColor: string,
+  manufacturerId: RacePresentationEntrant['manufacturerId'],
   numberColor = '#FFFFFF',
 ): CarSpriteMetadata => ({
   bodyColor,
   accentColor,
   numberColor,
+  manufacturerId,
   logicalWidth: racePresentationAssumptions.spriteLogicalWidth,
   logicalHeight: racePresentationAssumptions.spriteLogicalHeight,
 });
 
-const canonicalPrototypeCompetitorData = [
-  {
-    id: 'presentation-12', carNumber: '12', driverName: 'Grant Calder', lane: 0,
-    qualifyingOnTrack: true, qualifyingStartDistance: 0.538, raceStartDistance: 7.538,
-    paceFactor: 1.012, tireStatus: 'Good', tirePercent: 92, fuelPercent: 74,
-    sprite: sprite('#E9E2D0', '#B52832', '#111827'),
-  },
-  {
-    id: 'presentation-13', carNumber: '13', driverName: 'Wesley Boone', lane: 2,
-    qualifyingOnTrack: false, qualifyingStartDistance: 0.415, raceStartDistance: 7.518,
-    paceFactor: 1.004, tireStatus: 'Good', tirePercent: 90, fuelPercent: 73,
-    sprite: sprite('#E07A22', '#121820'),
-  },
-  {
-    id: 'presentation-2', carNumber: '2', driverName: 'Dale Iverson', lane: 1,
-    qualifyingOnTrack: false, qualifyingStartDistance: 0.31, raceStartDistance: 7.502,
-    paceFactor: 1.009, tireStatus: 'Good', tirePercent: 91, fuelPercent: 72,
-    sprite: sprite('#E8B923', '#243047', '#111827'),
-  },
-  {
-    id: 'presentation-20', carNumber: '20', driverName: 'Nolan Briggs', lane: 0,
-    qualifyingOnTrack: true, qualifyingStartDistance: 0.472, raceStartDistance: 7.486,
-    paceFactor: 1.001, tireStatus: 'Good', tirePercent: 89, fuelPercent: 72,
-    sprite: sprite('#5E7CE2', '#E7EEF9'),
-  },
-  {
-    id: 'presentation-7', carNumber: '7', driverName: 'Spencer Vale', lane: 2,
-    qualifyingOnTrack: true, qualifyingStartDistance: 0.518, raceStartDistance: 7.471,
-    paceFactor: 1.006, tireStatus: 'Good', tirePercent: 90, fuelPercent: 71,
-    sprite: sprite('#35A56F', '#0C2530'),
-  },
-  {
-    id: 'presentation-71', carNumber: '71', driverName: 'Marcus Wynn', lane: 1,
-    qualifyingOnTrack: false, qualifyingStartDistance: 0.245, raceStartDistance: 7.454,
-    paceFactor: 0.998, tireStatus: 'Used', tirePercent: 86, fuelPercent: 70,
-    sprite: sprite('#8E5DB7', '#E9DBF6'),
-  },
-  {
-    id: 'presentation-5', carNumber: '5', driverName: 'Parker Bell', lane: 0,
-    qualifyingOnTrack: false, qualifyingStartDistance: 0.19, raceStartDistance: 7.437,
-    paceFactor: 0.996, tireStatus: 'Used', tirePercent: 85, fuelPercent: 70,
-    sprite: sprite('#D9485F', '#F7D9DE'),
-  },
-  {
-    id: 'presentation-55', carNumber: '55', driverName: 'Austin Keene', lane: 2,
-    qualifyingOnTrack: true, qualifyingStartDistance: 0.446, raceStartDistance: 7.421,
-    paceFactor: 0.992, tireStatus: 'Used', tirePercent: 84, fuelPercent: 69,
-    sprite: sprite('#34A6C8', '#D9F3FA', '#10212A'),
-  },
-  {
-    id: 'presentation-18', carNumber: '18', driverName: 'Logan Price', lane: 1,
-    qualifyingOnTrack: true, qualifyingStartDistance: 0.489, raceStartDistance: 7.405,
-    paceFactor: 0.994, tireStatus: 'Used', tirePercent: 83, fuelPercent: 69,
-    sprite: sprite('#F1EFEA', '#2F5C99', '#142033'),
-  },
-  {
-    id: 'presentation-81', carNumber: '81', driverName: 'Trey Maddox', lane: 0,
-    qualifyingOnTrack: false, qualifyingStartDistance: 0.12, raceStartDistance: 7.388,
-    paceFactor: 0.989, tireStatus: 'Used', tirePercent: 82, fuelPercent: 68,
-    sprite: sprite('#39424E', '#D4A927'),
-  },
-] as const satisfies readonly Omit<
-  RacePresentationEntrant,
-  'isPlayerTeam' | 'playerDriverId' | 'carCondition'
->[];
-
-const canonicalPrototypeCompetitors: RacePresentationEntrant[] =
-  canonicalPrototypeCompetitorData.map((entry) => ({ ...entry, isPlayerTeam: false }));
-
-const playerPaintSchemes: Record<string, CarSpriteMetadata> = {
-  '45': sprite('#D93A32', '#F4F1E8'),
-  '46': sprite('#2878C8', '#F1C84B'),
+const playerPaintSchemes: Record<string, Pick<CarSpriteMetadata, 'bodyColor' | 'accentColor'>> = {
+  '45': { bodyColor: '#D93A32', accentColor: '#F4F1E8' },
+  '46': { bodyColor: '#2878C8', accentColor: '#F1C84B' },
 };
 
 export function getRacePresentationConfig(kind: RaceSessionKind): RacePresentationConfig {
@@ -149,7 +88,7 @@ export function getRacePresentationConfig(kind: RaceSessionKind): RacePresentati
     temperatureFahrenheit: racePresentationAssumptions.temperatureFahrenheit,
     cautionState: 'Green',
     canonicalFieldSize: racePresentationAssumptions.canonicalFieldSize,
-    prototypeFieldSize: racePresentationAssumptions.prototypeFieldSize,
+    fieldSize: racePresentationAssumptions.fieldSize,
     visibleCarLimit: racePresentationAssumptions.visibleCarLimit,
     cameraWindow: racePresentationAssumptions.cameraWindow,
     sampleIntervalMs: racePresentationAssumptions.sampleIntervalMs,
@@ -174,78 +113,96 @@ export function getRacePresentationEntrants(
   state: GameState = starterGameState,
   weekend?: RaceWeekendState,
 ): RacePresentationEntrant[] {
-  const playerEntries = state.vehicles.map((vehicle, index) => {
-    const driver = state.drivers.find(
-      (item) => item.id === vehicle.assignedDriverId,
+  const { track } = getNextRace(state);
+  if (!track) throw new Error('Missing current track for ERCA field');
+
+  const activeEntries = state.raceField.entries.filter((entry) => entry.active);
+  if (activeEntries.length !== raceFieldTuning.fieldSize) {
+    throw new Error(
+      `ERCA field must contain exactly ${raceFieldTuning.fieldSize} active entries`,
     );
-
-    if (!driver) {
-      throw new Error(`Missing assigned driver for Car #${vehicle.number}`);
-    }
-
-    return {
-      id: `presentation-${vehicle.number}`,
-      carNumber: vehicle.number,
-      driverName: driver.name,
-      playerDriverId: driver.id,
-      isPlayerTeam: true,
-      lane: index === 0 ? 1 : 2,
-      qualifyingOnTrack: true,
-      qualifyingStartDistance: index === 0 ? 0.5 : 0.458,
-      raceStartDistance: index === 0 ? 7.462 : 7.429,
-      paceFactor: index === 0 ? 1.003 : 0.997,
-      tireStatus: 'Good',
-      tirePercent: index === 0 ? 88 : 85,
-      fuelPercent: index === 0 ? 71 : 69,
-      carCondition: vehicle.condition,
-      sprite: {
-        ...playerPaintSchemes[vehicle.number],
-        manufacturerId: state.team.manufacturerId,
-      },
-    } satisfies RacePresentationEntrant;
-  });
-
-  const entries = [...canonicalPrototypeCompetitors, ...playerEntries];
-
-  if (!weekend) {
-    return entries;
   }
 
-  const fieldSize = entries.length;
-
-  return entries.map((entry) => {
+  return activeEntries.map((entry, index) => {
+    const driver = getFieldDriver(state, entry);
+    const organization = getFieldOrganization(state, entry.teamId);
+    const vehicle = entry.isPlayerTeam
+      ? state.vehicles.find((item) => item.assignedDriverId === entry.driverId)
+      : undefined;
+    const rating = calculateFieldEntryRating(state, entry, track);
     const qualifying = weekend?.qualifying?.entries.find((item) => item.id === entry.id);
     const race = weekend?.race?.entries.find((item) => item.id === entry.id);
-    const qualifyingPosition = qualifying?.position ?? fieldSize;
+    const qualifyingPosition = qualifying?.position ?? index + 1;
     const finishPosition = race?.finishPosition ?? qualifyingPosition;
+    const orderedPosition =
+      weekend?.phase === 'race' || weekend?.phase === 'results'
+        ? finishPosition
+        : qualifyingPosition;
+    const paint = playerPaintSchemes[entry.carNumber];
 
     return {
-      ...entry,
-      qualifyingStartDistance: 0.2 + (fieldSize - qualifyingPosition) * 0.025,
-      raceStartDistance: 7.3 + (fieldSize - qualifyingPosition) * 0.018,
+      id: entry.id,
+      carNumber: entry.carNumber,
+      driverName: driver.name,
+      driverId: entry.driverId,
+      teamId: entry.teamId,
+      teamName: organization.name,
+      manufacturerId: entry.manufacturerId,
+      playerDriverId: entry.isPlayerTeam ? entry.driverId : undefined,
+      isPlayerTeam: entry.isPlayerTeam,
+      lane: (Number(entry.carNumber) % 3) as 0 | 1 | 2,
+      qualifyingOnTrack: entry.isPlayerTeam,
+      qualifyingStartDistance:
+        0.2 + (raceFieldTuning.fieldSize - qualifyingPosition) * 0.018,
+      raceStartDistance:
+        7.3 + (raceFieldTuning.fieldSize - qualifyingPosition) * 0.012,
       paceFactor:
-        weekend?.phase === 'race' || weekend?.phase === 'results'
-          ? 0.99 + (fieldSize - finishPosition) * 0.002
-          : 0.99 + (fieldSize - qualifyingPosition) * 0.002,
+        weekend
+          ? 0.99 + (raceFieldTuning.fieldSize - orderedPosition) * 0.0012
+          : racePresentationAssumptions.presentationPaceBase +
+            rating * racePresentationAssumptions.presentationPaceRatingScale,
+      authoritativeFinishPosition: race?.finishPosition,
+      tireStatus: index < 16 ? 'Good' : 'Used',
+      tirePercent: Math.max(78, 94 - (index % 12)),
+      fuelPercent: Math.max(66, 76 - (index % 10)),
+      carCondition: vehicle?.condition,
+      sprite: sprite(
+        paint?.bodyColor ?? organization.primaryColor,
+        paint?.accentColor ?? organization.accentColor,
+        entry.manufacturerId,
+        paint ? '#FFFFFF' : organization.accentColor,
+      ),
     };
   });
 }
 
 export function getWeekendEntrants(state: GameState = starterGameState): WeekendEntrant[] {
-  return getRacePresentationEntrants(state).map((entry) => ({
-    id: entry.id,
-    carNumber: entry.carNumber,
-    driverName: entry.driverName,
-    isPlayerTeam: entry.isPlayerTeam,
-    driverId: entry.playerDriverId,
-    vehicleId: entry.isPlayerTeam
-      ? state.vehicles.find((vehicle) => vehicle.assignedDriverId === entry.playerDriverId)?.id
-      : undefined,
-    baselineRating: entry.isPlayerTeam
-      ? 0
-      : raceWeekendTuning.aiBaselineCenter +
-        (entry.paceFactor - 1) * raceWeekendTuning.aiPaceFactorScale,
-  }));
+  const { track } = getNextRace(state);
+  if (!track) throw new Error('Missing current track for ERCA field');
+
+  return state.raceField.entries
+    .filter((entry) => entry.active)
+    .map((entry) => {
+      const driver = getFieldDriver(state, entry);
+      const organization = getFieldOrganization(state, entry.teamId);
+      const vehicle = entry.isPlayerTeam
+        ? state.vehicles.find((item) => item.assignedDriverId === entry.driverId)
+        : undefined;
+      return {
+        id: entry.id,
+        carNumber: entry.carNumber,
+        driverName: driver.name,
+        teamId: entry.teamId,
+        teamName: organization.name,
+        manufacturerId: entry.manufacturerId,
+        isPlayerTeam: entry.isPlayerTeam,
+        driverId: entry.driverId,
+        vehicleId: vehicle?.id,
+        baselineRating: entry.isPlayerTeam
+          ? 0
+          : calculateFieldEntryRating(state, entry, track),
+      };
+    });
 }
 
 export function getRacePresentationContext(state: GameState = starterGameState) {

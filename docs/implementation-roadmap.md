@@ -40,11 +40,23 @@ preserves processed transaction identifiers so old actions are not replayed.
   replay; existing cash, EXP, calendar, vehicles, repairs, and economy ledgers
   remain intact
 
-## 3. 32-Car Race Field Expansion
+## 3. 32-Car Race Field Expansion (state version 4)
 
-- 32-car fields with centralized fictional teams and drivers
-- Scalable deterministic generation, timing tower, results, and standings
+- Persistent 32-car field: two Apex entries and 30 centralized fictional opponents
+- 17 organizations: mostly two-car teams with two one-car opponent programs
+- Provisional distribution: 12 Chevrolat, 11 Fard, and 9 Toyoda entries
+- Centralized provisional driver/team weighting: 60% driver and 40% equipment
+- Stable seeded qualifying and races with identifier-based tie-breaking
+- Focused timing tower capped at 10 rows around the leader and both Apex cars
+- Concise grid/results summaries with dedicated full 32-car views
+- Persistent driver standings with provisional 32-to-1 finish points and no bonuses
 - Portrait performance and locked payout-table compatibility
+- Version 3 campaigns receive the authoritative 32-entry roster and zeroed
+  standings without retroactive results or points. Version 4 normalization
+  preserves cash, EXP, calendar, damage/readiness, recruiting, RP, reserve
+  driver, repairs, sponsor/economy state, and processed transaction ledgers.
+- Manufacturer remains identity/presentation data only. Manufacturer
+  performance, transfers, AI finances, and reserve racing remain future work.
 
 ## 4. Race Strategy, Tires, and Archetype Integration
 

@@ -1,4 +1,8 @@
-import type { GameState, RepairOptionId } from '@/types/game';
+import type {
+  GameState,
+  ManufacturerId,
+  RepairOptionId,
+} from '@/types/game';
 import type {
   ContractTermYears,
   RecruitingActionId,
@@ -17,8 +21,11 @@ export type WeekendEntrant = {
   id: string;
   carNumber: string;
   driverName: string;
+  teamId: string;
+  teamName: string;
+  manufacturerId: ManufacturerId;
   isPlayerTeam: boolean;
-  driverId?: string;
+  driverId: string;
   vehicleId?: string;
   baselineRating: number;
 };

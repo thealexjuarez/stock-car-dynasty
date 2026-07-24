@@ -12,7 +12,7 @@ type TimingTowerProps = {
 };
 
 export function TimingTower({ compact, runningOrder, style }: TimingTowerProps) {
-  const rowHeight = compact ? 23 : 28;
+  const rowHeight = compact ? 25 : 30;
 
   return (
     <View
@@ -33,7 +33,7 @@ export function TimingTower({ compact, runningOrder, style }: TimingTowerProps) 
           paddingHorizontal: 6,
           paddingVertical: 5,
         }}>
-        <AppText variant="eyebrow" tone="accent" style={{ fontSize: 8 }}>
+        <AppText variant="eyebrow" tone="accent" style={{ fontSize: compact ? 9 : 10 }}>
           {raceWeekendCopy.presentation.runningOrder}
         </AppText>
       </View>
@@ -44,6 +44,7 @@ export function TimingTower({ compact, runningOrder, style }: TimingTowerProps) 
         initialNumToRender={10}
         keyExtractor={(item) => item.id}
         maxToRenderPerBatch={10}
+        scrollEnabled={false}
         renderItem={({ item }) => (
           <View
             style={{
@@ -60,18 +61,18 @@ export function TimingTower({ compact, runningOrder, style }: TimingTowerProps) 
             }}>
             <AppText
               variant="caption"
-              style={{ fontFamily: theme.typography.mono, fontSize: compact ? 8 : 10, textAlign: 'center', width: compact ? 14 : 20 }}>
+              style={{ fontFamily: theme.typography.mono, fontSize: compact ? 9 : 11, textAlign: 'center', width: compact ? 15 : 20 }}>
               {item.position}
             </AppText>
             <AppText
               variant="caption"
-              style={{ color: item.sprite.bodyColor, fontFamily: theme.typography.mono, fontSize: compact ? 8 : 10, width: compact ? 21 : 28 }}>
+              style={{ color: item.sprite.bodyColor, fontFamily: theme.typography.mono, fontSize: compact ? 9 : 11, width: compact ? 23 : 28 }}>
               #{item.carNumber}
             </AppText>
             <AppText
               numberOfLines={1}
               variant="caption"
-              style={{ flex: 1, fontSize: compact ? 7 : 10 }}>
+              style={{ flex: 1, fontSize: compact ? 9 : 11 }}>
               {compact ? item.driverName.split(' ').at(-1) : item.driverName}
             </AppText>
             <View
@@ -86,7 +87,7 @@ export function TimingTower({ compact, runningOrder, style }: TimingTowerProps) 
             <AppText
               variant="caption"
               tone="soft"
-              style={{ fontFamily: theme.typography.mono, fontSize: compact ? 7 : 9, textAlign: 'right', width: compact ? 25 : 38 }}>
+              style={{ fontFamily: theme.typography.mono, fontSize: compact ? 9 : 10, textAlign: 'right', width: compact ? 29 : 38 }}>
               {item.interval}
             </AppText>
           </View>

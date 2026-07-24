@@ -9,6 +9,7 @@ import {
   manufacturerCatalog,
 } from '@/data/manufacturer-data';
 import { createInitialRecruitingState } from '@/data/prospect-data';
+import { createInitialRaceFieldState } from '@/data/erca-field-data';
 import type { Driver, DriverStat, GameState, TrackRisk, TrackType } from '@/types/game';
 
 export const starterDrivers: Driver[] = [
@@ -47,7 +48,7 @@ const tracks = trackInfo.map(([id,name,type,keyStats,tireWear,cautionRisk,strate
 const calendar = trackInfo.map(([id,name], index) => ({ id:`race-${index+1}`, round:index+1, week:index+1, name:`${name} ERCA ${index+1}`, trackId:`track-${id}` }));
 
 export const starterGameState: GameState = {
-  stateVersion: 3,
+  stateVersion: 4,
   sanctioningBody:'NSCRA', series:'ERCA Stock Series', season:1, week:1, currentDate:'May 1, 2028',
   team:{ id:'team-apex-motorsports', name:'Apex Motorsports', cash:525000, series:'ERCA Stock Series', sanctioningBody:'NSCRA', manufacturerId:apexStartingManufacturerId, reputation:46, brandPower:44, recruitingPull:45, sponsorAppeal:48, carPerformance:54, pitCrewQuality:42, engineeringQuality:46, garageEfficiency:45, morale:55 },
   drivers:starterDrivers,
@@ -78,6 +79,7 @@ export const starterGameState: GameState = {
     settlementHistory: [],
   },
   recruiting: createInitialRecruitingState(45, 44),
+  raceField: createInitialRaceFieldState(),
 };
 
 export function getNextRace(state: GameState = starterGameState) {

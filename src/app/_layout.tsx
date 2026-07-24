@@ -59,6 +59,14 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="full-grid"
+            options={{
+              headerShown: true,
+              title: 'Full Starting Grid',
+              headerBackTitle: 'Grid',
+            }}
+          />
+          <Stack.Screen
             name="live-race"
             options={{
               headerShown: true,
@@ -72,6 +80,14 @@ export default function RootLayout() {
               headerShown: true,
               title: raceWeekendCopy.results.title,
               headerBackTitle: 'Race',
+            }}
+          />
+          <Stack.Screen
+            name="full-results"
+            options={{
+              headerShown: true,
+              title: 'Full Official Results',
+              headerBackTitle: 'Results',
             }}
           />
           <Stack.Screen

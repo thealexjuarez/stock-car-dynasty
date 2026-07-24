@@ -1,4 +1,5 @@
 import type { RecruitingState } from '@/types/recruiting';
+import type { RaceFieldState } from '@/types/race-field';
 
 export type DriverMorale = 'Happy' | 'Neutral' | 'Concerned';
 export type DriverConfidence = 'Steady' | 'Shaken' | 'Hot';
@@ -136,4 +137,5 @@ export type GameState = {
   nextRaceId: string;
   economy: EconomyState;
   recruiting: RecruitingState;
+  raceField: RaceFieldState;
 };

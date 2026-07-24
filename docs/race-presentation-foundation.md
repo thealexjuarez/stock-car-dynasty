@@ -2,12 +2,14 @@
 
 ## Scope
 
-The Qualifying and Live Race screens share a fixed elevated side-follow 2.5D scene. The application shell is a safe-area-aware portrait layout with an internally scrolling timing tower to the left of the track viewport, followed by race status, player-driver cards, strategy controls, and fixed session controls below. The route itself does not scroll. This layer is presentation-only: it does not decide final qualifying results, race results, incidents, pit outcomes, tire balance, fuel balance, or caution behavior.
+The Qualifying and Live Race screens share a fixed elevated side-follow 2.5D scene. The application shell is a safe-area-aware portrait layout with a focused timing tower to the left of the track viewport, followed by race status, player-driver cards, strategy controls, and fixed session controls below. The route itself does not scroll. This layer is presentation-only: it does not decide final qualifying results, race results, incidents, pit outcomes, tire balance, fuel balance, or caution behavior.
 
 ## Prototype assumptions
 
 - Canonical ERCA field: 32 cars, as locked by the vNext Bible.
-- Prototype timing field: 12 Bible-defined cars and drivers.
+- Active timing field: all 32 persistent ERCA cars and drivers.
+- Focused timing tower: leader plus windows around both Apex entries, merged
+  without duplicates and capped at 10 portrait-safe rows.
 - Simultaneously rendered scene cars: at most 7, centered around the selected Apex Motorsports driver.
 - Player cars: #45 Cole Mercer and #46 Aiden Voss from current starter state.
 - Original placeholder sprite footprint: 108 by 44 logical pixels per car.
@@ -34,11 +36,13 @@ The qualifying format, sample lap counts, weather, telemetry, camera window, and
 - Repeating wall, infield, asphalt, lane, and texture layers move at different speeds.
 - A deterministic four-phase oval cycle adds opposing bank angles, car attitude, and subtle lane drift in turns.
 - The center scene renders only the closest cars inside the camera window, capped at seven.
-- The timing tower accepts any field length and uses a virtualized list.
+- The timing tower receives a pure focused selector result rather than rendering
+  or scrolling through all 32 entries.
 - The timing list is not nested inside a route-level vertical scroll container.
 - Cars use original transparent vector-style placeholder geometry with a low body, greenhouse, glass, spoiler, wheels, highlights, shade, livery stripe, and readable number.
 - Cars and track layers remain code-native placeholders, so this slice adds no raster texture memory.
-- Qualifying filters the visible on-track set while retaining the complete prototype timing order.
+- Qualifying filters the visible on-track set while retaining the complete
+  32-entry timing order.
 
 ## Before showing a full field in the scene
 

@@ -14,8 +14,8 @@ import { theme } from '@/theme';
 
 export default function AppTabs() {
   return (
-    <Tabs>
-      <TabSlot style={{ height: '100%' }} />
+    <Tabs style={{ backgroundColor: theme.colors.asphalt, flex: 1 }}>
+      <TabSlot style={{ flex: 1, minHeight: 0 }} />
       <TabList asChild>
         <CustomTabList>
           {tabs.map((tab) => (
@@ -34,6 +34,8 @@ function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
     <Pressable
       {...props}
       style={({ pressed }) => ({
+        flex: 1,
+        minWidth: 0,
         opacity: pressed ? 0.75 : 1,
       })}>
       <View
@@ -45,13 +47,15 @@ function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
           borderWidth: 1,
           justifyContent: 'center',
           minHeight: 40,
-          minWidth: 74,
-          paddingHorizontal: theme.spacing.sm,
+          paddingHorizontal: 2,
+          width: '100%',
         }}>
         <AppText
+          numberOfLines={1}
           variant="caption"
           style={{
             color: theme.colors.white,
+            fontSize: 10,
             fontWeight: '900',
           }}>
           {children}
@@ -67,29 +71,20 @@ function CustomTabList(props: TabListProps) {
       {...props}
       style={{
         alignItems: 'center',
-        bottom: 0,
+        backgroundColor: theme.colors.rubber,
+        borderTopColor: theme.colors.border,
+        borderTopWidth: 1,
+        flexDirection: 'row',
+        flexShrink: 0,
+        flexWrap: 'nowrap',
+        gap: 4,
+        height: 64,
         justifyContent: 'center',
-        left: 0,
-        padding: theme.spacing.lg,
-        position: 'absolute',
-        right: 0,
+        paddingHorizontal: 6,
+        paddingVertical: 8,
+        width: '100%',
       }}>
-      <View
-        style={{
-          backgroundColor: theme.colors.rubber,
-          borderColor: theme.colors.border,
-          borderRadius: theme.cards.radius,
-          borderWidth: 1,
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          gap: theme.spacing.sm,
-          justifyContent: 'center',
-          maxWidth: theme.layout.maxContentWidth,
-          padding: theme.spacing.sm,
-          width: '100%',
-        }}>
-        {props.children}
-      </View>
+      {props.children}
     </View>
   );
 }

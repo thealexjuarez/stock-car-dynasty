@@ -7,6 +7,7 @@ import {
   createInitialRecruitingState,
   createProspectProgress,
 } from '@/data/prospect-data';
+import { createInitialRaceFieldState } from '@/data/erca-field-data';
 import { starterGameState } from '@/data/starter-game-state';
 import { updateVehicleCondition } from '@/simulation/vehicle-repair';
 import type {
@@ -22,8 +23,9 @@ import type {
   RecruitingState,
   ReserveDriver,
 } from '@/types/recruiting';
+import type { DriverStanding, RaceFieldState } from '@/types/race-field';
 
-export const CURRENT_GAME_STATE_VERSION = 3;
+export const CURRENT_GAME_STATE_VERSION = 4;
 
 const canonicalArchetypes = new Set<DriverArchetype>([
   'Complete Driver',
@@ -209,11 +211,96 @@ function normalizeRecruiting(
   };
 }
 
+function normalizeRaceField(
+  raceField: Partial<RaceFieldState> | undefined,
+): RaceFieldState {
+  const initial = createInitialRaceFieldState();
+  const priorOrganizations = new Map(
+    (raceField?.organizations ?? []).map((organization) => [
+      organization.id,
+      organization,
+    ]),
+  );
+  const priorDrivers = new Map(
+    (raceField?.opponentDrivers ?? []).map((driver) => [driver.id, driver]),
+  );
+  const priorEntries = new Map(
+    (raceField?.entries ?? []).map((entry) => [entry.id, entry]),
+  );
+  const priorStandings = new Map(
+    (raceField?.standings ?? []).map((standing) => [
+      standing.entryId,
+      standing,
+    ]),
+  );
+  const standings = initial.standings.map((fallback) => {
+    const standing = priorStandings.get(fallback.entryId) as
+      | Partial<DriverStanding>
+      | undefined;
+    return {
+      ...fallback,
+      ...standing,
+      entryId: fallback.entryId,
+      driverId: fallback.driverId,
+    };
+  });
+
+  return {
+    organizations: initial.organizations.map((fallback) => ({
+      ...fallback,
+      ...priorOrganizations.get(fallback.id),
+      id: fallback.id,
+      name: fallback.name,
+      shortCode: fallback.shortCode,
+      manufacturerId: fallback.manufacturerId,
+      primaryColor: fallback.primaryColor,
+      accentColor: fallback.accentColor,
+      isPlayerTeam: fallback.isPlayerTeam,
+    })),
+    opponentDrivers: initial.opponentDrivers.map((fallback) => {
+      const prior = priorDrivers.get(fallback.id);
+      return {
+        ...fallback,
+        ...prior,
+        id: fallback.id,
+        name: fallback.name,
+        teamId: fallback.teamId,
+        carNumber: fallback.carNumber,
+        manufacturerId: fallback.manufacturerId,
+        active: fallback.active,
+        archetypes: [
+          prior?.archetypes[0] ?? fallback.archetypes[0],
+          prior?.archetypes[1] ?? fallback.archetypes[1],
+        ],
+        stats: { ...fallback.stats, ...prior?.stats },
+      };
+    }),
+    entries: initial.entries.map((fallback) => {
+      const prior = priorEntries.get(fallback.id);
+      return {
+        ...fallback,
+        ...prior,
+        id: fallback.id,
+        carNumber: fallback.carNumber,
+        driverId: fallback.driverId,
+        teamId: fallback.teamId,
+        manufacturerId: fallback.manufacturerId,
+        active: fallback.active,
+        series: fallback.series,
+        isPlayerTeam: fallback.isPlayerTeam,
+      };
+    }),
+    standings,
+    processedRaceIds: unique(raceField?.processedRaceIds ?? []),
+  };
+}
+
 export function normalizeGameState(state: GameState): GameState {
   const legacyState = state as GameState & {
     stateVersion?: number;
     economy?: Partial<EconomyState>;
     recruiting?: Partial<RecruitingState>;
+    raceField?: Partial<RaceFieldState>;
     team: GameState['team'] & { manufacturerId?: string };
   };
 
@@ -264,6 +351,7 @@ export function normalizeGameState(state: GameState): GameState {
       state.team.recruitingPull,
       state.team.brandPower,
     ),
+    raceField: normalizeRaceField(legacyState.raceField),
   };
 }
 

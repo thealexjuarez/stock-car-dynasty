@@ -1,4 +1,5 @@
 import { resolveRacePayout } from '@/data/economy-config';
+import { raceFieldTuning } from '@/data/race-field-config';
 import { raceWeekendTuning as tuning } from '@/data/race-weekend-config';
 import { getNextRace } from '@/data/starter-game-state';
 import {
@@ -6,6 +7,7 @@ import {
   getSettlementTransactionId,
 } from '@/simulation/economy';
 import { applyRecruitingWeekendSettlement } from '@/simulation/recruiting';
+import { applyRaceFieldSettlement } from '@/simulation/race-field';
 import { getSeededUnit, getSeededVariance } from '@/simulation/seeded-variance';
 import { updateVehicleCondition } from '@/simulation/vehicle-repair';
 import type { Driver, GameState, Track } from '@/types/game';
@@ -60,12 +62,13 @@ export function resolveQualifying(
     if (entrant.isPlayerTeam) {
       const { driver, vehicle } = getPlayerParts(state, entrant);
       const practiceEntry = getPracticeEntry(practice, entrant);
+      const weights = raceFieldTuning.playerWeekendWeights.qualifying;
       score =
-        getTrackAbility(driver, track) * 0.45 +
-        driver.overall * 0.2 +
-        vehicle.performance * 0.2 +
-        vehicle.condition * 0.1 +
-        state.team.engineeringQuality * 0.05 +
+        getTrackAbility(driver, track) * weights.trackStats +
+        driver.overall * weights.overall +
+        vehicle.performance * weights.vehiclePerformance +
+        vehicle.condition * weights.condition +
+        state.team.engineeringQuality * weights.crew +
         (practiceEntry?.qualifyingPaceBonus ?? 0);
     }
 
@@ -74,7 +77,7 @@ export function resolveQualifying(
   });
 
   const entries: QualifyingEntryResult[] = scored
-    .sort((left, right) => right.score - left.score || left.carNumber.localeCompare(right.carNumber))
+    .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id))
     .map((entry, index) => ({ ...entry, position: index + 1 }));
 
   return { raceId: race.id, seed, entries };
@@ -111,12 +114,13 @@ export function resolveRace(
     if (entrant.isPlayerTeam) {
       const { driver, vehicle } = getPlayerParts(state, entrant);
       const practiceEntry = getPracticeEntry(practice, entrant);
+      const weights = raceFieldTuning.playerWeekendWeights.race;
       ability =
-        getTrackAbility(driver, track) * 0.42 +
-        driver.overall * 0.18 +
-        vehicle.performance * 0.2 +
-        vehicle.condition * 0.1 +
-        state.team.pitCrewQuality * 0.1 +
+        getTrackAbility(driver, track) * weights.trackStats +
+        driver.overall * weights.overall +
+        vehicle.performance * weights.vehiclePerformance +
+        vehicle.condition * weights.condition +
+        state.team.pitCrewQuality * weights.crew +
         (practiceEntry?.racePaceBonus ?? 0);
       dnfRisk = Math.max(0.01, dnfRisk - driver.stats.Awareness / 2_000);
     }
@@ -133,7 +137,12 @@ export function resolveRace(
   });
 
   const entries: RaceEntryResult[] = provisional
-    .sort((left, right) => right.score - left.score || left.entrant.position - right.entrant.position)
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        left.entrant.position - right.entrant.position ||
+        left.entrant.id.localeCompare(right.entrant.id),
+    )
     .map(({ entrant, dnf, score }, index) => {
       const finishPosition = index + 1;
       const isPlayerTeam = entrant.isPlayerTeam;
@@ -217,5 +226,8 @@ export function applyRaceSettlement(state: GameState, result: RaceResult): GameS
     }),
   };
 
-  return applyRecruitingWeekendSettlement(settledState, result);
+  return applyRaceFieldSettlement(
+    applyRecruitingWeekendSettlement(settledState, result),
+    result,
+  );
 }

@@ -24,8 +24,8 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
   const { height, width } = useWindowDimensions();
   const compact = width < 430 || height < 760;
   const compactDriverCards = height < 760;
-  const timingWidth = Math.max(104, Math.min(122, width * 0.31));
-  const trackHeight = Math.max(210, Math.min(270, height * 0.34));
+  const timingWidth = Math.max(116, Math.min(132, width * 0.32));
+  const trackHeight = Math.max(220, Math.min(280, height * 0.35));
   const framePadding = compact ? 6 : 8;
   const { track } = getRacePresentationContext(state.game);
   const {
@@ -128,7 +128,7 @@ export function RacePresentationShell({ kind }: RacePresentationShellProps) {
           }}>
           <TimingTower
             compact={compact}
-            runningOrder={model.runningOrder}
+            runningOrder={model.timingTowerOrder}
             style={{ width: timingWidth }}
           />
           <RaceScene
